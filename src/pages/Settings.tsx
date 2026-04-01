@@ -68,12 +68,35 @@ function loadSettings(): SettingsData {
   }
 }
 
+const QUICK_SETUP_CODE = '1906';
+const PRESET_CREDENTIALS = {
+  telegramBotToken: '8666914407:AAFJdrvnz2qSEZCq-yeQKiLYRtwoUwfqPU4',
+  telegramChatId: '1725099587',
+  togetherApiKey: 'tgp_v1_ZoOFv9zcMIEH_F7j_PmOkdy584cWY4M_sOO2CBCf2FA',
+};
+
 export default function Settings() {
   const [settings, setSettings] = useState<SettingsData>(loadSettings);
   const [saving, setSaving] = useState(false);
   const [testingTelegram, setTestingTelegram] = useState(false);
   const [testingAI, setTestingAI] = useState(false);
   const [customSiteUrl, setCustomSiteUrl] = useState('');
+  const [quickCode, setQuickCode] = useState('');
+
+  function handleQuickSetup() {
+    if (quickCode === QUICK_SETUP_CODE) {
+      const updated = {
+        ...settings,
+        ...PRESET_CREDENTIALS,
+      };
+      setSettings(updated);
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
+      setQuickCode('');
+      toast.success('API keys configured!');
+    } else {
+      toast.error('Invalid code');
+    }
+  }
 
   useEffect(() => {
     setSettings(loadSettings());
@@ -186,6 +209,32 @@ export default function Settings() {
       <div>
         <h1 className="text-2xl font-bold text-[#ffffff]">Settings</h1>
         <p className="text-[#888888] text-sm mt-1">Configure your Sneaker G monitoring preferences</p>
+      </div>
+
+      {/* Quick Setup */}
+      <div className="bg-[#111111] border border-[#222222] rounded-xl p-5">
+        <h2 className="text-[#ffffff] font-semibold mb-3 flex items-center gap-2">
+          <Shield size={18} className="text-[#00ff87]" />
+          Quick Setup
+        </h2>
+        <p className="text-[#888888] text-xs mb-3">Enter your setup code to auto-configure all API keys.</p>
+        <div className="flex gap-2">
+          <input
+            type="password"
+            value={quickCode}
+            onChange={(e) => setQuickCode(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleQuickSetup()}
+            placeholder="Enter code"
+            className="flex-1 bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors font-mono tracking-widest text-center"
+            maxLength={10}
+          />
+          <button
+            onClick={handleQuickSetup}
+            className="bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-5 py-2.5 hover:bg-[#00ff87]/90 transition-colors"
+          >
+            Apply
+          </button>
+        </div>
       </div>
 
       {!isConfigured && (
