@@ -1,0 +1,15 @@
+{
+  "crons": [
+    {
+      "path": "/api/scrape/check",
+      "schedule": "*/1 * * * *"
+    }
+  ],
+  "functions": {
+    "api/scrape/check.ts": {
+      "maxDuration": 60
+    }
+  },
+  "buildCommand": "vite build",
+  "outputDirectory": "dist"
+}
