@@ -1,15 +1,19 @@
 import { useState, useRef, useCallback } from 'react';
-import { Upload, Camera, Loader2, Plus, Search, Image as ImageIcon } from 'lucide-react';
+import { Upload, Camera, Loader2, Plus, Search, Image as ImageIcon, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { identifyImage, addToWatchlist } from '../lib/api';
-import type { IdentifyResult } from '../types';
+import type { IdentifyResult, ReleaseInfo } from '../types';
 import { useNavigate } from 'react-router-dom';
+
+interface IdentifyResultWithRelease extends IdentifyResult {
+  release?: ReleaseInfo;
+}
 
 export default function Identify() {
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<IdentifyResult | null>(null);
+  const [result, setResult] = useState<IdentifyResultWithRelease | null>(null);
   const [addingToWatchlist, setAddingToWatchlist] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -95,6 +99,8 @@ export default function Identify() {
     setLoading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
+
+  const confidencePercent = result ? Math.round(result.confidence * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -195,11 +201,11 @@ export default function Identify() {
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{
-                          width: `${result.confidence}%`,
+                          width: `${confidencePercent}%`,
                           backgroundColor:
-                            result.confidence >= 80
+                            confidencePercent >= 80
                               ? '#00ff87'
-                              : result.confidence >= 50
+                              : confidencePercent >= 50
                               ? '#eab308'
                               : '#ef4444',
                         }}
@@ -207,18 +213,75 @@ export default function Identify() {
                     </div>
                     <span
                       className={`text-sm font-bold ${
-                        result.confidence >= 80
+                        confidencePercent >= 80
                           ? 'text-[#00ff87]'
-                          : result.confidence >= 50
+                          : confidencePercent >= 50
                           ? 'text-[#eab308]'
                           : 'text-[#ef4444]'
                       }`}
                     >
-                      {result.confidence}%
+                      {confidencePercent}%
                     </span>
                   </div>
                 </div>
               </div>
+
+              {/* Release Info */}
+              {result.release && (
+                <div className="space-y-3 pt-2">
+                  <h3 className="text-sm font-semibold text-[#00ff87]">Release Information</h3>
+
+                  {[
+                    { label: 'Release Date', value: result.release.releaseDate },
+                    { label: 'Retail Price', value: result.release.retailPrice },
+                    { label: 'Est. Resale', value: result.release.estimatedResale },
+                    { label: 'Colorway', value: result.release.colorway },
+                  ].map(({ label, value }) =>
+                    value ? (
+                      <div key={label} className="flex items-center justify-between py-2 border-b border-[#222222]">
+                        <span className="text-[#888888] text-sm">{label}</span>
+                        <span className="text-[#ffffff] text-sm font-medium">{value}</span>
+                      </div>
+                    ) : null
+                  )}
+
+                  {result.release.retailers && result.release.retailers.length > 0 && (
+                    <div className="py-2 border-b border-[#222222]">
+                      <span className="text-[#888888] text-sm block mb-1.5">Retailers</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {result.release.retailers.map((r) => (
+                          <span
+                            key={r}
+                            className="text-xs px-2 py-1 rounded-md bg-[#222222] text-[#ffffff]"
+                          >
+                            {r}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {result.release.sourceUrls && result.release.sourceUrls.length > 0 && (
+                    <div className="py-2">
+                      <span className="text-[#888888] text-sm block mb-1.5">Sources</span>
+                      <div className="space-y-1">
+                        {result.release.sourceUrls.map((url) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-[#888888] hover:text-[#00ff87] transition-colors truncate"
+                          >
+                            <ExternalLink size={12} className="flex-shrink-0" />
+                            {url}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button

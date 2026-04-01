@@ -4,7 +4,12 @@ import type { IdentifyResult, ReleaseInfo } from '../types.js';
 
 const together = new Together({ apiKey: process.env.TOGETHER_API_KEY! });
 const VISION_MODEL = 'Qwen/Qwen3-VL-8B-Instruct';
-const RESEARCH_MODEL = 'meta-llama/Meta-Llama-3.3-70B-Instruct-Turbo';
+const RESEARCH_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
+
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+];
 
 async function identifyShoe(base64Image: string): Promise<IdentifyResult> {
   const res = await together.chat.completions.create({
@@ -42,31 +47,62 @@ confidence is a float from 0 to 1 indicating how sure you are. If you cannot ide
 }
 
 async function searchRelease(name: string): Promise<ReleaseInfo> {
-  const res = await together.chat.completions.create({
-    model: RESEARCH_MODEL,
-    messages: [
-      {
-        role: 'system',
-        content: `You are a sneaker expert. Given a sneaker name, provide release information. Return ONLY valid JSON:
-{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}
-If unknown, use "Unknown" for strings and empty array for retailers. Use YYYY-MM-DD for dates and include $ for prices.`,
-      },
-      {
-        role: 'user',
-        content: `Provide release info for: ${name}`,
-      },
-    ],
-    max_tokens: 512,
-    temperature: 0.2,
-  });
+  const sourceUrls = [
+    `https://www.google.com/search?q=${encodeURIComponent(name + ' release date retail price resale value')}`,
+    `https://sneakernews.com/?s=${encodeURIComponent(name)}`,
+  ];
 
-  const raw = res.choices?.[0]?.message?.content?.trim() ?? '{}';
+  const fetchPage = async (url: string): Promise<string> => {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
+          'Accept': 'text/html',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!res.ok) return '';
+      const html = await res.text();
+      return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 3000);
+    } catch {
+      return '';
+    }
+  };
+
+  const [googleText, sneakerNewsText] = await Promise.all(sourceUrls.map(fetchPage));
+  const combinedText = `Google results:\n${googleText}\n\nSneakerNews results:\n${sneakerNewsText}`;
+
   try {
+    const llmRes = await together.chat.completions.create({
+      model: RESEARCH_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: `You are a sneaker data extractor. ONLY extract information from the provided search data. Do NOT make up or hallucinate any data. Return ONLY valid JSON:
+{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}
+If a field is not found in the data, use "Unknown" for strings and empty array for retailers. Use YYYY-MM-DD for dates and include $ for prices.`,
+        },
+        {
+          role: 'user',
+          content: `Extract release info for "${name}" ONLY from this search data. If information is not present, use "Unknown":\n\n${combinedText}`,
+        },
+      ],
+      max_tokens: 512,
+      temperature: 0,
+    });
+
+    const raw = llmRes.choices?.[0]?.message?.content?.trim() ?? '{}';
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (jsonMatch) return JSON.parse(jsonMatch[0]) as ReleaseInfo;
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]) as ReleaseInfo;
+      parsed.sourceUrls = sourceUrls;
+      return parsed;
+    }
   } catch {
     // fall through
   }
+
   return {
     name,
     releaseDate: 'Unknown',
@@ -74,6 +110,7 @@ If unknown, use "Unknown" for strings and empty array for retailers. Use YYYY-MM
     retailPrice: 'Unknown',
     estimatedResale: 'Unknown',
     colorway: 'Unknown',
+    sourceUrls,
   };
 }
 

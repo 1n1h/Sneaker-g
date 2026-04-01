@@ -10,6 +10,8 @@ export interface WatchlistEntry {
   lastResult: 'in_stock' | 'coming_soon' | 'sold_out' | 'unknown' | null;
   imageUrl: string | null;
   notes: string | null;
+  releaseDate: string | null;
+  retailPrice: string | null;
 }
 
 export interface ScrapeHistoryEntry {

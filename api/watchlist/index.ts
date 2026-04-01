@@ -1,7 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Redis } from '@upstash/redis';
 import { v4 as uuidv4 } from 'uuid';
+import Together from 'together-ai';
 import type { WatchlistEntry } from '../types.js';
+
+const together = new Together({ apiKey: process.env.TOGETHER_API_KEY! });
 
 const redis = new Redis({
   url: process.env.STORAGE_KV_REST_API_URL!,
@@ -70,6 +73,53 @@ async function findShoeImage(name: string): Promise<string | null> {
   return null;
 }
 
+async function findReleaseInfo(name: string): Promise<{ releaseDate: string | null; retailPrice: string | null }> {
+  try {
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name + ' release date retail price')}`;
+    const res = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
+        'Accept': 'text/html',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return { releaseDate: null, retailPrice: null };
+
+    const html = await res.text();
+    const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4000);
+
+    const llmRes = await together.chat.completions.create({
+      model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+      messages: [
+        {
+          role: 'system',
+          content: 'Extract ONLY the release date and retail price from this data. Return JSON: {"releaseDate": "...", "retailPrice": "..."}. If not found, use null.',
+        },
+        {
+          role: 'user',
+          content: `Extract release date and retail price for "${name}" from this search data:\n\n${text}`,
+        },
+      ],
+      max_tokens: 256,
+      temperature: 0,
+    });
+
+    const raw = llmRes.choices?.[0]?.message?.content?.trim() ?? '{}';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        releaseDate: parsed.releaseDate ?? null,
+        retailPrice: parsed.retailPrice ?? null,
+      };
+    }
+  } catch {
+    // fall through
+  }
+  return { releaseDate: null, retailPrice: null };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // ─── GET: return full watchlist ────────────────────────────────
@@ -86,11 +136,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ success: false, error: 'Missing required field: name' });
       }
 
-      // Auto-fetch image if none provided
-      let finalImageUrl = imageUrl ?? null;
-      if (!finalImageUrl) {
-        finalImageUrl = await findShoeImage(name);
-      }
+      // Auto-fetch image and release info in parallel
+      const needsImage = !imageUrl;
+      const [fetchedImage, releaseInfo] = await Promise.all([
+        needsImage ? findShoeImage(name) : Promise.resolve(imageUrl),
+        findReleaseInfo(name),
+      ]);
 
       const entry: WatchlistEntry = {
         id: uuidv4(),
@@ -102,8 +153,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         lastChecked: null,
         status: 'monitoring',
         lastResult: null,
-        imageUrl: finalImageUrl,
+        imageUrl: fetchedImage ?? null,
         notes: notes ?? null,
+        releaseDate: releaseInfo.releaseDate,
+        retailPrice: releaseInfo.retailPrice,
       };
 
       const watchlist: WatchlistEntry[] = (await redis.get<WatchlistEntry[]>('watchlist')) ?? [];

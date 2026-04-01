@@ -7,6 +7,7 @@ import { getWatchlist, addToWatchlist, updateMonitoringStatus } from '../lib/api
 import type { WatchlistEntry, MonitoringStatus } from '../types';
 
 const RETAILERS = [
+  'All',
   'Nike SNKRS',
   'Foot Locker',
   'Finish Line',
@@ -23,7 +24,7 @@ export default function Dashboard() {
   // Quick add form
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
-  const [retailer, setRetailer] = useState(RETAILERS[0]);
+  const [retailer, setRetailer] = useState('All');
   const [interval, setInterval_] = useState(30);
   const [adding, setAdding] = useState(false);
 
@@ -55,7 +56,7 @@ export default function Dashboard() {
 
   async function handleQuickAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !url.trim()) return;
+    if (!name.trim()) return;
     setAdding(true);
     try {
       const entry = await addToWatchlist({
@@ -176,11 +177,10 @@ export default function Dashboard() {
           />
           <input
             type="url"
-            placeholder="Product URL"
+            placeholder="Product URL (optional)"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors"
-            required
           />
           <select
             value={retailer}

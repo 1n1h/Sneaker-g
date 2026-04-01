@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { Plus, Trash2, Pause, Play, Loader2, X, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatusBadge from '../components/StatusBadge';
@@ -12,6 +12,7 @@ import {
 import type { WatchlistEntry } from '../types';
 
 const RETAILERS = [
+  'All',
   'Nike SNKRS',
   'Foot Locker',
   'Finish Line',
@@ -22,6 +23,17 @@ const RETAILERS = [
 
 const PLACEHOLDER_IMG = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect fill="#111111" width="200" height="200"/><rect x="70" y="80" width="60" height="35" rx="8" fill="#222222"/><rect x="60" y="95" width="80" height="20" rx="6" fill="#222222"/></svg>')}`;
 
+function formatReleaseDate(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  try {
+    const parsed = new Date(dateStr);
+    if (isNaN(parsed.getTime())) return dateStr;
+    return format(parsed, 'MMM d, yyyy');
+  } catch {
+    return dateStr;
+  }
+}
+
 export default function Watchlist() {
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +42,7 @@ export default function Watchlist() {
   // Form state
   const [formName, setFormName] = useState('');
   const [formUrl, setFormUrl] = useState('');
-  const [formRetailer, setFormRetailer] = useState(RETAILERS[0]);
+  const [formRetailer, setFormRetailer] = useState('All');
   const [formInterval, setFormInterval] = useState(30);
   const [formNotes, setFormNotes] = useState('');
   const [formImageUrl, setFormImageUrl] = useState('');
@@ -113,7 +125,7 @@ export default function Watchlist() {
   function resetForm() {
     setFormName('');
     setFormUrl('');
-    setFormRetailer(RETAILERS[0]);
+    setFormRetailer('All');
     setFormInterval(30);
     setFormNotes('');
     setFormImageUrl('');
@@ -181,6 +193,16 @@ export default function Watchlist() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <h3 className="text-[#ffffff] font-semibold text-sm truncate">{entry.name}</h3>
+                    {entry.releaseDate && (
+                      <p className="text-[#888888] text-xs mt-0.5">
+                        {'\uD83D\uDCC5'} Release: {formatReleaseDate(entry.releaseDate)}
+                      </p>
+                    )}
+                    {entry.retailPrice && (
+                      <p className="text-[#00ff87] text-xs mt-0.5">
+                        {'\uD83D\uDCB0'} {entry.retailPrice}
+                      </p>
+                    )}
                     <p className="text-[#888888] text-xs mt-0.5">{entry.retailer}</p>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
