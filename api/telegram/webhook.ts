@@ -12,7 +12,7 @@ const redis = new Redis({
 const together = new Together({ apiKey: process.env.TOGETHER_API_KEY! });
 
 const RESEARCH_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
-const VISION_MODEL = 'Qwen/Qwen3-VL-8B-Instruct';
+const VISION_MODEL = 'moonshotai/Kimi-K2.5';
 
 // ─── Telegram helpers ────────────────────────────────────────────────
 
