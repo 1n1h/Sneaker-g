@@ -20,7 +20,7 @@ const RETAILERS = [
   'StockX',
 ];
 
-const PLACEHOLDER_IMG = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect fill="#111111" width="200" height="200"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="48" fill="#222222">👟</text></svg>`);
+const PLACEHOLDER_IMG = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect fill="#111111" width="200" height="200"/><rect x="70" y="80" width="60" height="35" rx="8" fill="#222222"/><rect x="60" y="95" width="80" height="20" rx="6" fill="#222222"/></svg>')}`;
 
 export default function Watchlist() {
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
