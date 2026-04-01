@@ -12,17 +12,23 @@ const SNEAKER_SOURCES = [
   { name: 'Google', url: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q + ' sneaker release date retail price site:sneakernews.com OR site:solecollector.com OR site:hypebeast.com')}` },
 ];
 
-async function scrapeWebData(query: string): Promise<string> {
+interface ScrapeResult {
+  text: string;
+  sourceUrls: string[];
+}
+
+async function scrapeWebData(query: string): Promise<ScrapeResult> {
   const results: string[] = [];
+  const sourceUrls: string[] = [];
   const userAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
   ];
 
-  // Fetch from multiple sources in parallel
   const fetches = SNEAKER_SOURCES.map(async (source) => {
+    const sourceUrl = source.url(query);
     try {
-      const res = await fetch(source.url(query), {
+      const res = await fetch(sourceUrl, {
         headers: {
           'User-Agent': userAgents[Math.floor(Math.random() * userAgents.length)],
           'Accept': 'text/html,application/xhtml+xml',
@@ -30,9 +36,8 @@ async function scrapeWebData(query: string): Promise<string> {
         },
         signal: AbortSignal.timeout(8000),
       });
-      if (!res.ok) return '';
+      if (!res.ok) return { text: '', url: sourceUrl, name: source.name, ok: false };
       const html = await res.text();
-      // Strip HTML tags, keep text content, limit size
       const text = html
         .replace(/<script[\s\S]*?<\/script>/gi, '')
         .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -40,25 +45,26 @@ async function scrapeWebData(query: string): Promise<string> {
         .replace(/\s+/g, ' ')
         .trim()
         .slice(0, 3000);
-      return `[Source: ${source.name}]\n${text}`;
+      return { text: `[Source: ${source.name}]\n${text}`, url: sourceUrl, name: source.name, ok: true };
     } catch {
-      return '';
+      return { text: '', url: sourceUrl, name: source.name, ok: false };
     }
   });
 
   const scraped = await Promise.all(fetches);
-  for (const text of scraped) {
-    if (text) results.push(text);
+  for (const item of scraped) {
+    if (item.ok && item.text) {
+      results.push(item.text);
+      sourceUrls.push(item.url);
+    }
   }
 
-  return results.join('\n\n---\n\n');
+  return { text: results.join('\n\n---\n\n'), sourceUrls };
 }
 
 export async function searchReleaseInfo(name: string): Promise<ReleaseInfo> {
-  // Step 1: Scrape real web data
-  const webData = await scrapeWebData(name);
+  const { text: webData, sourceUrls } = await scrapeWebData(name);
 
-  // Step 2: Pass real data to LLM to extract structured info
   const completion = await together.chat.completions.create({
     model: RESEARCH_MODEL,
     messages: [
@@ -91,7 +97,9 @@ Return ONLY valid JSON:
   try {
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as ReleaseInfo;
+      const info = JSON.parse(jsonMatch[0]) as ReleaseInfo;
+      info.sourceUrls = sourceUrls;
+      return info;
     }
   } catch {
     // fall through
@@ -104,6 +112,7 @@ Return ONLY valid JSON:
     retailPrice: 'Unknown',
     estimatedResale: 'Unknown',
     colorway: 'Unknown',
+    sourceUrls,
   };
 }
 

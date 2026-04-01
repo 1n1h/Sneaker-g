@@ -29,6 +29,7 @@ export interface ReleaseInfo {
   retailPrice: string;
   estimatedResale: string;
   colorway: string;
+  sourceUrls?: string[];
 }
 
 export interface IdentifyResult {

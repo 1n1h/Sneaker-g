@@ -108,16 +108,18 @@ Respond with: {"intent": "...", "params": {...}}`,
 
 // ─── Release search (shared logic — uses real web scraping) ─────────
 
-async function scrapeWebData(query: string): Promise<string> {
+async function scrapeWebData(query: string): Promise<{ text: string; sourceUrls: string[] }> {
   const sources = [
-    `https://www.google.com/search?q=${encodeURIComponent(query + ' sneaker release date retail price site:sneakernews.com OR site:solecollector.com OR site:hypebeast.com')}`,
-    `https://sneakernews.com/?s=${encodeURIComponent(query)}`,
+    { name: 'Google', url: `https://www.google.com/search?q=${encodeURIComponent(query + ' sneaker release date retail price site:sneakernews.com OR site:solecollector.com OR site:hypebeast.com')}` },
+    { name: 'SneakerNews', url: `https://sneakernews.com/?s=${encodeURIComponent(query)}` },
+    { name: 'StockX', url: `https://stockx.com/search?s=${encodeURIComponent(query)}` },
   ];
   const results: string[] = [];
+  const sourceUrls: string[] = [];
 
-  const fetches = sources.map(async (url) => {
+  const fetches = sources.map(async (source) => {
     try {
-      const res = await fetch(url, {
+      const res = await fetch(source.url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
           'Accept': 'text/html',
@@ -125,29 +127,33 @@ async function scrapeWebData(query: string): Promise<string> {
         },
         signal: AbortSignal.timeout(8000),
       });
-      if (!res.ok) return '';
+      if (!res.ok) return null;
       const html = await res.text();
-      return html
+      const text = html
         .replace(/<script[\s\S]*?<\/script>/gi, '')
         .replace(/<style[\s\S]*?<\/style>/gi, '')
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()
         .slice(0, 3000);
+      return { text: `[Source: ${source.name}]\n${text}`, url: source.url };
     } catch {
-      return '';
+      return null;
     }
   });
 
   const scraped = await Promise.all(fetches);
-  for (const text of scraped) {
-    if (text) results.push(text);
+  for (const item of scraped) {
+    if (item) {
+      results.push(item.text);
+      sourceUrls.push(item.url);
+    }
   }
-  return results.join('\n\n---\n\n');
+  return { text: results.join('\n\n---\n\n'), sourceUrls };
 }
 
 async function searchRelease(name: string): Promise<ReleaseInfo> {
-  const webData = await scrapeWebData(name);
+  const { text: webData, sourceUrls } = await scrapeWebData(name);
 
   const res = await together.chat.completions.create({
     model: RESEARCH_MODEL,
@@ -167,7 +173,11 @@ Return ONLY valid JSON:
   const raw = res.choices?.[0]?.message?.content?.trim() ?? '{}';
   try {
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (jsonMatch) return JSON.parse(jsonMatch[0]) as ReleaseInfo;
+    if (jsonMatch) {
+      const info = JSON.parse(jsonMatch[0]) as ReleaseInfo;
+      info.sourceUrls = sourceUrls;
+      return info;
+    }
   } catch {
     // fall through
   }
@@ -178,6 +188,7 @@ Return ONLY valid JSON:
     retailPrice: 'Unknown',
     estimatedResale: 'Unknown',
     colorway: 'Unknown',
+    sourceUrls,
   };
 }
 
@@ -262,7 +273,16 @@ async function handleSearchRelease(params: Record<string, string>): Promise<stri
   const name = params.name ?? 'Unknown';
   const info = await searchRelease(name);
 
-  return `\ud83d\udd0d *Release Info: ${info.name}*\n\n\ud83d\udcc5 Release: ${info.releaseDate}\n\ud83c\udfa8 Colorway: ${info.colorway}\n\ud83d\udcb0 Retail: ${info.retailPrice}\n\ud83d\udcc8 Est. Resale: ${info.estimatedResale}\n\ud83c\udfea Retailers: ${info.retailers.length > 0 ? info.retailers.join(', ') : 'TBD'}`;
+  let reply = `🔍 Release Info - Sneaker G\n──────────────────\n👟 ${info.name}\n📅 Release: ${info.releaseDate}\n🎨 Colorway: ${info.colorway}\n💰 Retail: ${info.retailPrice}\n📈 Est. Resale: ${info.estimatedResale}\n🏪 Retailers: ${info.retailers.length > 0 ? info.retailers.join(', ') : 'TBD'}\n──────────────────`;
+
+  if (info.sourceUrls && info.sourceUrls.length > 0) {
+    reply += '\n\n🔗 Sources:';
+    for (const url of info.sourceUrls) {
+      reply += `\n${url}`;
+    }
+  }
+
+  return reply;
 }
 
 async function handleListWatchlist(): Promise<string> {
