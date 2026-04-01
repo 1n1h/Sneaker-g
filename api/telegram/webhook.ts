@@ -829,6 +829,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     await sendTelegramMessage(chatId, reply);
+
+    // Save context from any intent that mentions a shoe name
+    if (parsed.params.name && !isVagueName(parsed.params.name)) {
+      await setChatContext(chatId, {
+        lastShoeName: parsed.params.name,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    // For general chat, try to extract a shoe name from the user's message
+    if (parsed.intent === 'general_chat') {
+      try {
+        const extractRes = await together.chat.completions.create({
+          model: RESEARCH_MODEL,
+          messages: [
+            {
+              role: 'system',
+              content: 'Extract the specific sneaker name from this message if one is mentioned. Return ONLY JSON: {"shoe": "exact shoe name"} or {"shoe": null} if no specific shoe is mentioned. Do NOT guess — only extract if a specific model is named.',
+            },
+            { role: 'user', content: text },
+          ],
+          max_tokens: 100,
+          temperature: 0,
+        });
+        const extractRaw = extractRes.choices?.[0]?.message?.content?.trim() ?? '{}';
+        const extractMatch = extractRaw.match(/\{[\s\S]*\}/);
+        if (extractMatch) {
+          const { shoe } = JSON.parse(extractMatch[0]);
+          if (shoe && typeof shoe === 'string' && shoe.length > 2) {
+            await setChatContext(chatId, {
+              lastShoeName: shoe,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+      } catch {
+        // ignore extraction failures
+      }
+    }
+
     return res.status(200).json({ success: true, data: 'Message processed' });
   } catch (error) {
     console.error('Webhook error:', error);
