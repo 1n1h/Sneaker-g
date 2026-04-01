@@ -28,7 +28,7 @@ export default function Layout() {
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[#111111] border-b border-[#222222] px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="Sneaker G" className="h-7" />
+          <img src="/logo.png" alt="Sneaker G" className="h-20" />
         </div>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -53,8 +53,8 @@ export default function Layout() {
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        <div className="px-5 h-16 flex items-center gap-2.5 border-b border-[#222222]">
-          <img src="/logo.png" alt="Sneaker G" className="h-8" />
+        <div className="px-5 py-4 flex items-center gap-2.5 border-b border-[#222222]">
+          <img src="/logo.png" alt="Sneaker G" className="h-24" />
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-1">
