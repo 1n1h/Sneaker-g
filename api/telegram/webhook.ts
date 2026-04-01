@@ -56,6 +56,33 @@ async function downloadTelegramFile(fileId: string): Promise<string> {
   return buffer.toString('base64');
 }
 
+// ─── Conversation context (per-chat memory) ────────────────────────
+
+interface ChatContext {
+  lastShoeName: string;
+  lastShoeData?: {
+    brand?: string;
+    model?: string;
+    colorway?: string;
+    releaseDate?: string;
+    retailPrice?: string;
+  };
+  updatedAt: string;
+}
+
+async function getChatContext(chatId: string): Promise<ChatContext | null> {
+  return await redis.get<ChatContext>(`chat_context:${chatId}`);
+}
+
+async function setChatContext(chatId: string, context: ChatContext): Promise<void> {
+  await redis.set(`chat_context:${chatId}`, context, { ex: 86400 }); // 24h TTL
+}
+
+function isVagueName(name: string): boolean {
+  const vague = ['it', 'that', 'this', 'that shoe', 'this shoe', 'that one', 'this one', 'the shoe', 'them', 'those', 'these', 'the last one', 'previous', 'same'];
+  return vague.includes(name.toLowerCase().trim());
+}
+
 // ─── Intent classification ───────────────────────────────────────────
 
 type Intent =
@@ -75,7 +102,11 @@ interface ParsedIntent {
   params: Record<string, string>;
 }
 
-async function classifyIntent(text: string): Promise<ParsedIntent> {
+async function classifyIntent(text: string, context: ChatContext | null): Promise<ParsedIntent> {
+  const contextHint = context
+    ? `\n\nIMPORTANT CONTEXT: The user was just talking about "${context.lastShoeName}". If they say "it", "that", "this shoe", "the shoe", "that one", etc., they mean "${context.lastShoeName}". Replace any vague references with the actual shoe name.`
+    : '';
+
   const res = await together.chat.completions.create({
     model: RESEARCH_MODEL,
     messages: [
@@ -93,7 +124,7 @@ Intents:
 - get_calendar: user wants upcoming releases calendar. No params.
 - pause_monitoring: user wants to pause all monitoring. No params.
 - resume_monitoring: user wants to resume monitoring. No params.
-- general_chat: anything else. No params.
+- general_chat: anything else. No params.${contextHint}
 
 Respond with: {"intent": "...", "params": {...}}`,
       },
@@ -365,7 +396,18 @@ async function findShoeImage(name: string): Promise<string | null> {
 }
 
 async function handleAddToWatchlist(chatId: string, params: Record<string, string>): Promise<void> {
-  const name = params.name ?? 'Unknown Shoe';
+  let name = params.name ?? 'Unknown Shoe';
+
+  // Resolve vague references like "it", "that shoe" from conversation context
+  if (isVagueName(name)) {
+    const ctx = await getChatContext(chatId);
+    if (ctx?.lastShoeName) {
+      name = ctx.lastShoeName;
+    } else {
+      await sendTelegramMessage(chatId, "❌ I'm not sure which shoe you mean. Try saying the full name, e.g. \"add Nike Dunk High to watchlist\"");
+      return;
+    }
+  }
 
   // Scrape for an image
   const imageUrl = await findShoeImage(name);
@@ -399,8 +441,16 @@ async function handleAddToWatchlist(chatId: string, params: Record<string, strin
   await sendTelegramMessage(chatId, caption);
 }
 
-async function handleRemoveFromWatchlist(params: Record<string, string>): Promise<string> {
-  const name = (params.name ?? '').toLowerCase();
+async function handleRemoveFromWatchlist(chatId: string, params: Record<string, string>): Promise<string> {
+  let name = (params.name ?? '').toLowerCase();
+
+  // Resolve vague references
+  if (isVagueName(name)) {
+    const ctx = await getChatContext(chatId);
+    if (ctx?.lastShoeName) {
+      name = ctx.lastShoeName.toLowerCase();
+    }
+  }
   const watchlist: WatchlistEntry[] = (await redis.get<WatchlistEntry[]>('watchlist')) ?? [];
   const idx = watchlist.findIndex((e) => e.name.toLowerCase().includes(name));
 
@@ -417,6 +467,17 @@ async function handleRemoveFromWatchlist(params: Record<string, string>): Promis
 async function handleSearchRelease(chatId: string, params: Record<string, string>): Promise<void> {
   const name = params.name ?? 'Unknown';
   const info = await searchRelease(name);
+
+  // Save context
+  await setChatContext(chatId, {
+    lastShoeName: info.name || name,
+    lastShoeData: {
+      colorway: info.colorway,
+      releaseDate: info.releaseDate,
+      retailPrice: info.retailPrice,
+    },
+    updatedAt: new Date().toISOString(),
+  });
 
   const caption = [
     `🔍 Release Info - Sneaker G`,
@@ -644,6 +705,19 @@ async function handleImageMessage(chatId: string, base64Image: string, userMessa
   const fullName = `${identification.brand} ${identification.model}`;
   const release = await searchRelease(fullName);
 
+  // Save context so user can say "add it" later
+  await setChatContext(chatId, {
+    lastShoeName: fullName,
+    lastShoeData: {
+      brand: identification.brand,
+      model: identification.model,
+      colorway: identification.colorway,
+      releaseDate: release.releaseDate,
+      retailPrice: release.retailPrice,
+    },
+    updatedAt: new Date().toISOString(),
+  });
+
   const caption = [
     `👁️ Sneaker Identified - Sneaker G`,
     `──────────────────`,
@@ -711,7 +785,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true, data: 'No text in message' });
     }
 
-    const parsed = await classifyIntent(text);
+    // Load conversation context for this chat
+    const chatContext = await getChatContext(chatId);
+    const parsed = await classifyIntent(text, chatContext);
 
     // These intents send messages themselves (for photo support)
     if (parsed.intent === 'search_release') {
@@ -726,7 +802,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let reply: string;
     switch (parsed.intent) {
       case 'remove_from_watchlist':
-        reply = await handleRemoveFromWatchlist(parsed.params);
+        reply = await handleRemoveFromWatchlist(chatId, parsed.params);
         break;
       case 'list_watchlist':
         reply = await handleListWatchlist();
