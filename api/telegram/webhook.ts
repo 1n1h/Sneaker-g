@@ -21,11 +21,20 @@ const VISION_MODEL = 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-Turbo';
 // ─── Telegram helpers ────────────────────────────────────────────────
 
 async function sendTelegramMessage(chatId: string, text: string): Promise<void> {
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+  // Try with Markdown first, fall back to plain text if it fails
+  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' }),
   });
+  if (!res.ok) {
+    // Retry without parse_mode if Markdown fails
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+  }
 }
 
 async function downloadTelegramFile(fileId: string): Promise<string> {
@@ -395,6 +404,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ success: true, data: 'Message processed' });
   } catch (error) {
     console.error('Webhook error:', error);
+    // Send error details to Telegram for debugging
+    const chatId = req.body?.message?.chat?.id ?? TELEGRAM_CHAT_ID;
+    const errMsg = error instanceof Error ? error.message : String(error);
+    try {
+      await sendTelegramMessage(String(chatId), `⚠️ Bot error: ${errMsg}`);
+    } catch {
+      // ignore send failure
+    }
     return res.status(200).json({ success: false, error: 'Internal error' });
   }
 }
