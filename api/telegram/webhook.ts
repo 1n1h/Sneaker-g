@@ -696,6 +696,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true, data: 'Image processed' });
     }
 
+    // Handle document attachments (images sent as files)
+    if (message.document && message.document.mime_type?.startsWith('image/')) {
+      const userCaption = message.caption || '';
+      await sendTelegramMessage(chatId, '🔍 Analyzing image... this may take a moment.');
+      const base64Image = await downloadTelegramFile(message.document.file_id);
+      await handleImageMessage(chatId, base64Image, userCaption);
+      return res.status(200).json({ success: true, data: 'Document image processed' });
+    }
+
     // Handle text messages
     const text = message.text;
     if (!text) {
