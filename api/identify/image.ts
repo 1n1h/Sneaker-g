@@ -3,7 +3,7 @@ import Together from 'together-ai';
 import type { IdentifyResult, ReleaseInfo } from '../types.js';
 
 const together = new Together({ apiKey: process.env.TOGETHER_API_KEY! });
-const VISION_MODEL = 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-Turbo';
+const VISION_MODEL = 'Qwen/Qwen3-VL-8B-Instruct';
 const RESEARCH_MODEL = 'meta-llama/Meta-Llama-3.3-70B-Instruct-Turbo';
 
 async function identifyShoe(base64Image: string): Promise<IdentifyResult> {

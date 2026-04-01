@@ -14,9 +14,9 @@ const together = new Together({ apiKey: process.env.TOGETHER_API_KEY! });
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
-const SCOUT_MODEL = 'meta-llama/Llama-4-Scout-17B-16E-Instruct';
-const RESEARCH_MODEL = 'meta-llama/Meta-Llama-3.3-70B-Instruct-Turbo';
-const VISION_MODEL = 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-Turbo';
+const SCOUT_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
+const RESEARCH_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
+const VISION_MODEL = 'Qwen/Qwen3-VL-8B-Instruct';
 
 // ─── Telegram helpers ────────────────────────────────────────────────
 
