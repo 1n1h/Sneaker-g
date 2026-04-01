@@ -11,10 +11,6 @@ const redis = new Redis({
 
 const together = new Together({ apiKey: process.env.TOGETHER_API_KEY! });
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
-
-const SCOUT_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
 const RESEARCH_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
 const VISION_MODEL = 'Qwen/Qwen3-VL-8B-Instruct';
 
@@ -22,7 +18,6 @@ const VISION_MODEL = 'Qwen/Qwen3-VL-8B-Instruct';
 
 async function sendTelegramMessage(chatId: string, text: string): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN!;
-  // Send as plain text to avoid Markdown parsing issues
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -35,16 +30,28 @@ async function sendTelegramMessage(chatId: string, text: string): Promise<void> 
   }
 }
 
+async function sendTelegramPhoto(chatId: string, photoUrl: string, caption: string): Promise<boolean> {
+  const token = process.env.TELEGRAM_BOT_TOKEN!;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption }),
+    });
+    const result = await res.json();
+    console.log('Telegram sendPhoto result:', JSON.stringify(result));
+    return result.ok === true;
+  } catch {
+    return false;
+  }
+}
+
 async function downloadTelegramFile(fileId: string): Promise<string> {
-  const fileRes = await fetch(
-    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`
-  );
+  const token = process.env.TELEGRAM_BOT_TOKEN!;
+  const fileRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`);
   const fileData = (await fileRes.json()) as { result: { file_path: string } };
   const filePath = fileData.result.file_path;
-
-  const downloadRes = await fetch(
-    `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`
-  );
+  const downloadRes = await fetch(`https://api.telegram.org/file/bot${token}/${filePath}`);
   const buffer = Buffer.from(await downloadRes.arrayBuffer());
   return buffer.toString('base64');
 }
@@ -70,7 +77,7 @@ interface ParsedIntent {
 
 async function classifyIntent(text: string): Promise<ParsedIntent> {
   const res = await together.chat.completions.create({
-    model: SCOUT_MODEL,
+    model: RESEARCH_MODEL,
     messages: [
       {
         role: 'system',
@@ -106,40 +113,117 @@ Respond with: {"intent": "...", "params": {...}}`,
   return { intent: 'general_chat', params: {} };
 }
 
-// ─── Release search (shared logic — uses real web scraping) ─────────
+// ─── Web scraping helpers ───────────────────────────────────────────
 
-async function scrapeWebData(query: string): Promise<{ text: string; sourceUrls: string[] }> {
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+];
+
+function randomUA(): string {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
+
+async function fetchPage(url: string, maxChars = 3000): Promise<string> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': randomUA(),
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return '';
+    const html = await res.text();
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, maxChars);
+  } catch {
+    return '';
+  }
+}
+
+function extractImageUrl(html: string, query: string): string | null {
+  // Try to find an og:image or product image from raw HTML
+  try {
+    const ogMatch = html.match(/property="og:image"\s+content="([^"]+)"/i)
+      ?? html.match(/content="([^"]+)"\s+property="og:image"/i);
+    if (ogMatch?.[1] && !ogMatch[1].includes('logo') && !ogMatch[1].includes('favicon')) {
+      return ogMatch[1];
+    }
+    // Try to find an image with the shoe name keywords in src or alt
+    const keywords = query.toLowerCase().split(' ').filter(w => w.length > 2);
+    const imgMatches = html.matchAll(/<img[^>]+src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi);
+    for (const match of imgMatches) {
+      const src = match[1];
+      const lower = src.toLowerCase();
+      if (keywords.some(k => lower.includes(k)) && !lower.includes('logo') && !lower.includes('icon')) {
+        return src;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+async function fetchPageWithImage(url: string, query: string, maxChars = 3000): Promise<{ text: string; imageUrl: string | null }> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': randomUA(),
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return { text: '', imageUrl: null };
+    const html = await res.text();
+    const imageUrl = extractImageUrl(html, query);
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, maxChars);
+    return { text, imageUrl };
+  } catch {
+    return { text: '', imageUrl: null };
+  }
+}
+
+// ─── Release search (with real web scraping) ────────────────────────
+
+interface SearchResult extends ReleaseInfo {
+  imageUrl?: string | null;
+}
+
+async function searchRelease(name: string): Promise<SearchResult> {
   const sources = [
-    { name: 'Google', url: `https://www.google.com/search?q=${encodeURIComponent(query + ' sneaker release date retail price site:sneakernews.com OR site:solecollector.com OR site:hypebeast.com')}` },
-    { name: 'SneakerNews', url: `https://sneakernews.com/?s=${encodeURIComponent(query)}` },
-    { name: 'StockX', url: `https://stockx.com/search?s=${encodeURIComponent(query)}` },
+    { name: 'Google', url: `https://www.google.com/search?q=${encodeURIComponent(name + ' sneaker release date retail price site:sneakernews.com OR site:solecollector.com OR site:hypebeast.com OR site:kicksonfire.com')}` },
+    { name: 'SneakerNews', url: `https://sneakernews.com/?s=${encodeURIComponent(name)}` },
+    { name: 'StockX', url: `https://stockx.com/search?s=${encodeURIComponent(name)}` },
+    { name: 'KicksOnFire', url: `https://www.kicksonfire.com/?s=${encodeURIComponent(name)}` },
+    { name: 'NiceKicks', url: `https://nicekicks.com/?s=${encodeURIComponent(name)}` },
   ];
+
   const results: string[] = [];
   const sourceUrls: string[] = [];
+  let imageUrl: string | null = null;
 
   const fetches = sources.map(async (source) => {
-    try {
-      const res = await fetch(source.url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-          'Accept': 'text/html',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) return null;
-      const html = await res.text();
-      const text = html
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 3000);
-      return { text: `[Source: ${source.name}]\n${text}`, url: source.url };
-    } catch {
-      return null;
+    const { text, imageUrl: img } = await fetchPageWithImage(source.url, name);
+    if (text) {
+      return { text: `[Source: ${source.name}]\n${text}`, url: source.url, imageUrl: img };
     }
+    return null;
   });
 
   const scraped = await Promise.all(fetches);
@@ -147,20 +231,28 @@ async function scrapeWebData(query: string): Promise<{ text: string; sourceUrls:
     if (item) {
       results.push(item.text);
       sourceUrls.push(item.url);
+      if (!imageUrl && item.imageUrl) imageUrl = item.imageUrl;
     }
   }
-  return { text: results.join('\n\n---\n\n'), sourceUrls };
-}
 
-async function searchRelease(name: string): Promise<ReleaseInfo> {
-  const { text: webData, sourceUrls } = await scrapeWebData(name);
+  const webData = results.join('\n\n---\n\n');
 
   const res = await together.chat.completions.create({
     model: RESEARCH_MODEL,
     messages: [
       {
         role: 'system',
-        content: `You are a sneaker data extractor. Extract ONLY factual information from the scraped web data provided. Do NOT make up or guess any information. If a field is not found in the data, use "Unknown".
+        content: `You are a sneaker data extractor. Extract ONLY factual information from the scraped web data provided.
+
+CRITICAL RULES:
+- ONLY use facts explicitly stated in the scraped data
+- If a specific piece of info is NOT found in the data, you MUST use "Unknown"
+- Do NOT guess, infer, or make up ANY information
+- For release dates, use exact dates found in the data
+- For prices, use exact prices found in the data (include $ sign)
+- For resale estimates, only include if actual market data is present
+- If the scraped data is empty or irrelevant, return ALL fields as "Unknown"
+
 Return ONLY valid JSON:
 {"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}`,
       },
@@ -174,8 +266,9 @@ Return ONLY valid JSON:
   try {
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      const info = JSON.parse(jsonMatch[0]) as ReleaseInfo;
+      const info = JSON.parse(jsonMatch[0]) as SearchResult;
       info.sourceUrls = sourceUrls;
+      info.imageUrl = imageUrl;
       return info;
     }
   } catch {
@@ -189,10 +282,11 @@ Return ONLY valid JSON:
     estimatedResale: 'Unknown',
     colorway: 'Unknown',
     sourceUrls,
+    imageUrl,
   };
 }
 
-// ─── Image identification (shared logic) ─────────────────────────────
+// ─── Image identification ───────────────────────────────────────────
 
 async function identifyShoe(base64Image: string): Promise<IdentifyResult> {
   const res = await together.chat.completions.create({
@@ -251,7 +345,7 @@ async function handleAddToWatchlist(params: Record<string, string>): Promise<str
   watchlist.push(entry);
   await redis.set('watchlist', watchlist);
 
-  return `\u2705 *Added to Watchlist!*\n\n\ud83d\udc5f *${name}*\n\ud83c\udfea Retailer: ${entry.retailer}\n\u23f0 Check every: ${entry.scrapeInterval} min\n\ud83d\udccc ID: \`${entry.id}\`\n\nI'll keep an eye on this for you!`;
+  return `✅ Added to Watchlist!\n\n👟 ${name}\n🏪 Retailer: ${entry.retailer}\n⏰ Check every: ${entry.scrapeInterval} min\n📌 ID: ${entry.id}\n\nI'll keep an eye on this for you!`;
 }
 
 async function handleRemoveFromWatchlist(params: Record<string, string>): Promise<string> {
@@ -260,44 +354,59 @@ async function handleRemoveFromWatchlist(params: Record<string, string>): Promis
   const idx = watchlist.findIndex((e) => e.name.toLowerCase().includes(name));
 
   if (idx === -1) {
-    return `\u274c Could not find *${params.name}* in your watchlist.`;
+    return `❌ Could not find "${params.name}" in your watchlist.`;
   }
 
   const removed = watchlist.splice(idx, 1)[0];
   await redis.set('watchlist', watchlist);
 
-  return `\ud83d\uddd1\ufe0f *Removed from Watchlist*\n\n\ud83d\udc5f ${removed.name}\n\nNo longer monitoring this shoe.`;
+  return `🗑️ Removed from Watchlist\n\n👟 ${removed.name}\n\nNo longer monitoring this shoe.`;
 }
 
-async function handleSearchRelease(params: Record<string, string>): Promise<string> {
+async function handleSearchRelease(chatId: string, params: Record<string, string>): Promise<void> {
   const name = params.name ?? 'Unknown';
   const info = await searchRelease(name);
 
-  let reply = `🔍 Release Info - Sneaker G\n──────────────────\n👟 ${info.name}\n📅 Release: ${info.releaseDate}\n🎨 Colorway: ${info.colorway}\n💰 Retail: ${info.retailPrice}\n📈 Est. Resale: ${info.estimatedResale}\n🏪 Retailers: ${info.retailers.length > 0 ? info.retailers.join(', ') : 'TBD'}\n──────────────────`;
+  const caption = [
+    `🔍 Release Info - Sneaker G`,
+    `──────────────────`,
+    `👟 ${info.name}`,
+    `📅 Release: ${info.releaseDate}`,
+    `🎨 Colorway: ${info.colorway}`,
+    `💰 Retail: ${info.retailPrice}`,
+    `📈 Est. Resale: ${info.estimatedResale}`,
+    `🏪 Retailers: ${info.retailers.length > 0 ? info.retailers.join(', ') : 'TBD'}`,
+    `──────────────────`,
+  ].join('\n');
 
+  let sourcesText = '';
   if (info.sourceUrls && info.sourceUrls.length > 0) {
-    reply += '\n\n🔗 Sources:';
-    for (const url of info.sourceUrls) {
-      reply += `\n${url}`;
-    }
+    sourcesText = '\n\n🔗 Sources:\n' + info.sourceUrls.join('\n');
   }
 
-  return reply;
+  // Try to send with image first
+  if (info.imageUrl) {
+    const photoSent = await sendTelegramPhoto(chatId, info.imageUrl, caption + sourcesText);
+    if (photoSent) return;
+  }
+
+  // Fall back to text-only
+  await sendTelegramMessage(chatId, caption + sourcesText);
 }
 
 async function handleListWatchlist(): Promise<string> {
   const watchlist: WatchlistEntry[] = (await redis.get<WatchlistEntry[]>('watchlist')) ?? [];
 
   if (watchlist.length === 0) {
-    return `\ud83d\udcad *Your watchlist is empty.*\n\nSend me a shoe name to start monitoring!`;
+    return `📭 Your watchlist is empty.\n\nSend me a shoe name to start monitoring!`;
   }
 
   const lines = watchlist.map(
     (e, i) =>
-      `${i + 1}. \ud83d\udc5f *${e.name}*\n   Status: ${e.status === 'monitoring' ? '\ud83d\udfe2' : e.status === 'found' ? '\ud83c\udf89' : '\u23f8\ufe0f'} ${e.status}\n   Last: ${e.lastResult ?? 'Not checked yet'}`
+      `${i + 1}. 👟 ${e.name}\n   Status: ${e.status === 'monitoring' ? '🟢' : e.status === 'found' ? '🎉' : '⏸️'} ${e.status}\n   Last: ${e.lastResult ?? 'Not checked yet'}`
   );
 
-  return `\ud83d\udccb *Your Watchlist (${watchlist.length})*\n\n${lines.join('\n\n')}`;
+  return `📋 Your Watchlist (${watchlist.length})\n\n${lines.join('\n\n')}`;
 }
 
 async function handleSetDelay(params: Record<string, string>): Promise<string> {
@@ -307,13 +416,13 @@ async function handleSetDelay(params: Record<string, string>): Promise<string> {
   const entry = watchlist.find((e) => e.name.toLowerCase().includes(name));
 
   if (!entry) {
-    return `\u274c Could not find *${params.name}* in your watchlist.`;
+    return `❌ Could not find "${params.name}" in your watchlist.`;
   }
 
   entry.scrapeInterval = interval;
   await redis.set('watchlist', watchlist);
 
-  return `\u23f0 *Interval Updated*\n\n\ud83d\udc5f ${entry.name}\n\u23f1\ufe0f New interval: every ${interval} min`;
+  return `⏰ Interval Updated\n\n👟 ${entry.name}\n⏱️ New interval: every ${interval} min`;
 }
 
 async function handleCheckStatus(params: Record<string, string>): Promise<string> {
@@ -322,61 +431,60 @@ async function handleCheckStatus(params: Record<string, string>): Promise<string
 
   if (params.name) {
     const entry = watchlist.find((e) => e.name.toLowerCase().includes(params.name.toLowerCase()));
-    if (!entry) return `\u274c Could not find *${params.name}*.`;
+    if (!entry) return `❌ Could not find "${params.name}".`;
 
-    return `\ud83d\udcca *Status: ${entry.name}*\n\n\ud83d\udfe2 Status: ${entry.status}\n\ud83d\udccb Last Result: ${entry.lastResult ?? 'N/A'}\n\ud83d\udd52 Last Checked: ${entry.lastChecked ?? 'Never'}\n\u23f0 Interval: ${entry.scrapeInterval} min`;
+    return `📊 Status: ${entry.name}\n\n🟢 Status: ${entry.status}\n📋 Last Result: ${entry.lastResult ?? 'N/A'}\n🕒 Last Checked: ${entry.lastChecked ?? 'Never'}\n⏰ Interval: ${entry.scrapeInterval} min`;
   }
 
-  return `\ud83d\udcca *System Status*\n\n\ud83e\udd16 Monitoring: ${monitoringStatus === 'active' ? '\ud83d\udfe2 Active' : '\u23f8\ufe0f Paused'}\n\ud83d\udc5f Shoes tracked: ${watchlist.length}\n\ud83d\udfe2 Active: ${watchlist.filter((e) => e.status === 'monitoring').length}\n\u23f8\ufe0f Paused: ${watchlist.filter((e) => e.status === 'paused').length}`;
+  return `📊 System Status\n\n🤖 Monitoring: ${monitoringStatus === 'active' ? '🟢 Active' : '⏸️ Paused'}\n👟 Shoes tracked: ${watchlist.length}\n🟢 Active: ${watchlist.filter((e) => e.status === 'monitoring').length}\n⏸️ Paused: ${watchlist.filter((e) => e.status === 'paused').length}`;
 }
 
 async function handleGetCalendar(): Promise<string> {
-  // Scrape real release calendars
   const calendarSources = [
-    `https://sneakernews.com/release-dates/`,
-    `https://www.google.com/search?q=${encodeURIComponent('sneaker release dates this week ' + new Date().toISOString().slice(0, 10) + ' site:sneakernews.com OR site:solecollector.com OR site:nikeshoesreleasedates.com')}`,
+    { name: 'SneakerNews', url: 'https://sneakernews.com/release-dates/' },
+    { name: 'SoleCollector', url: 'https://solecollector.com/sneaker-release-dates' },
+    { name: 'KicksOnFire', url: 'https://www.kicksonfire.com/release-dates/' },
+    { name: 'NiceKicks', url: 'https://nicekicks.com/sneaker-release-dates/' },
+    { name: 'Google', url: `https://www.google.com/search?q=${encodeURIComponent('sneaker release dates this week april 2026 site:sneakernews.com OR site:solecollector.com OR site:kicksonfire.com OR site:nicekicks.com')}` },
   ];
 
   const results: string[] = [];
-  for (const url of calendarSources) {
-    try {
-      const fetchRes = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-          'Accept': 'text/html',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!fetchRes.ok) continue;
-      const html = await fetchRes.text();
-      const text = html
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 5000);
-      results.push(text);
-    } catch {
-      continue;
+  const successSources: string[] = [];
+
+  const fetches = calendarSources.map(async (source) => {
+    const text = await fetchPage(source.url, 5000);
+    if (text) {
+      return { text: `[Source: ${source.name}]\n${text}`, name: source.name, url: source.url };
+    }
+    return null;
+  });
+
+  const scraped = await Promise.all(fetches);
+  for (const item of scraped) {
+    if (item) {
+      results.push(item.text);
+      successSources.push(item.url);
     }
   }
 
   const webData = results.join('\n\n---\n\n');
+  const today = new Date().toISOString().slice(0, 10);
 
   const res = await together.chat.completions.create({
     model: RESEARCH_MODEL,
     messages: [
       {
         role: 'system',
-        content: `You are a sneaker release calendar extractor. You will be given REAL scraped web data from sneaker release calendar sites. Extract ONLY the actual upcoming releases found in the data. Do NOT make up any releases. Today's date is ${new Date().toISOString().slice(0, 10)}.
+        content: `You are a sneaker release calendar extractor. You will be given REAL scraped web data from sneaker release calendar sites. Today's date is ${today}.
 
-Rules:
-- ONLY list releases that are explicitly mentioned in the scraped data
-- Include the exact dates, shoe names, and prices found in the data
-- If no upcoming releases are found in the data, say "Could not find upcoming release data. Check https://sneakernews.com/release-dates/ for the latest calendar."
-- Format as a clean bullet point list`,
+CRITICAL RULES:
+- ONLY list releases that are EXPLICITLY mentioned in the scraped data with specific dates
+- Include the EXACT dates, shoe names, and prices as they appear in the data
+- Do NOT make up, guess, or invent ANY releases
+- Do NOT add shoes that are not in the scraped data
+- If you cannot find specific upcoming releases in the data, respond ONLY with: "Could not extract specific upcoming releases from the scraped data."
+- Focus on releases within the next 14 days from today
+- Format each release as: "• [Date] - [Shoe Name] - [Price if available]"`,
       },
       { role: 'user', content: `Extract upcoming sneaker releases from this data:\n\n${webData || 'No data found.'}` },
     ],
@@ -385,17 +493,23 @@ Rules:
   });
 
   const calendarText = res.choices?.[0]?.message?.content?.trim() ?? 'Could not retrieve release calendar.';
-  return `📆 Upcoming Releases - Sneaker G\n──────────────────\n${calendarText}\n──────────────────\n🔗 Source: https://sneakernews.com/release-dates/`;
+
+  let sourcesText = '\n\n🔗 Sources:';
+  for (const url of successSources.slice(0, 3)) {
+    sourcesText += `\n${url}`;
+  }
+
+  return `📆 Upcoming Releases - Sneaker G\n──────────────────\n${calendarText}\n──────────────────${sourcesText}`;
 }
 
 async function handlePauseMonitoring(): Promise<string> {
   await redis.set('monitoring_status', 'paused');
-  return `\u23f8\ufe0f *Monitoring Paused*\n\nAll scraping has been paused. Send "resume" to restart.`;
+  return `⏸️ Monitoring Paused\n\nAll scraping has been paused. Send "resume" to restart.`;
 }
 
 async function handleResumeMonitoring(): Promise<string> {
   await redis.set('monitoring_status', 'active');
-  return `\u25b6\ufe0f *Monitoring Resumed*\n\nScraping is back online! I'll keep checking your watchlist.`;
+  return `▶️ Monitoring Resumed\n\nScraping is back online! I'll keep checking your watchlist.`;
 }
 
 async function handleGeneralChat(text: string): Promise<string> {
@@ -404,8 +518,14 @@ async function handleGeneralChat(text: string): Promise<string> {
     messages: [
       {
         role: 'system',
-        content:
-          'You are Sneaker G, a friendly sneaker bot assistant. Keep responses concise and sneaker-themed. IMPORTANT: Do NOT make up specific release dates, prices, or stock information. If the user asks about specific releases or dates, tell them to use the "search [shoe name]" command for accurate info scraped from real sources. You can discuss general sneaker knowledge, culture, and tips.',
+        content: `You are Sneaker G, a friendly sneaker bot assistant. Keep responses concise and sneaker-themed.
+
+CRITICAL RULES:
+- Do NOT make up specific release dates, prices, stock status, or any factual claims
+- If the user asks about specific releases, dates, or prices, tell them to use "search [shoe name]" for real data
+- If the user asks about upcoming releases, tell them to say "upcoming releases" or "calendar" for scraped data
+- You CAN discuss general sneaker culture, tips on copping, reselling advice, and sneaker history
+- Be honest when you don't know something`,
       },
       { role: 'user', content: text },
     ],
@@ -418,12 +538,35 @@ async function handleGeneralChat(text: string): Promise<string> {
 
 // ─── Image handler ───────────────────────────────────────────────────
 
-async function handleImage(base64Image: string): Promise<string> {
+async function handleImageMessage(chatId: string, base64Image: string): Promise<void> {
   const identification = await identifyShoe(base64Image);
   const fullName = `${identification.brand} ${identification.model}`;
   const release = await searchRelease(fullName);
 
-  return `\ud83d\udcf8 *Sneaker Identified!*\n\n\ud83d\udc5f Brand: ${identification.brand}\n\ud83d\udcdb Model: ${identification.model}\n\ud83c\udfa8 Colorway: ${identification.colorway}\n\ud83d\udcc5 Year: ${identification.year}\n\ud83c\udfaf Confidence: ${Math.round(identification.confidence * 100)}%\n\n\ud83d\udd0d *Release Info*\n\ud83d\udcc5 Release: ${release.releaseDate}\n\ud83d\udcb0 Retail: ${release.retailPrice}\n\ud83d\udcc8 Est. Resale: ${release.estimatedResale}\n\ud83c\udfa8 Colorway: ${release.colorway}\n\ud83c\udfea Retailers: ${release.retailers.length > 0 ? release.retailers.join(', ') : 'TBD'}`;
+  const caption = [
+    `👁️ Sneaker Identified - Sneaker G`,
+    `──────────────────`,
+    `👟 ${identification.brand} ${identification.model}`,
+    `🎨 Colorway: ${identification.colorway}`,
+    `📅 Year: ${identification.year}`,
+    `🎯 Confidence: ${Math.round(identification.confidence * 100)}%`,
+    ``,
+    `🔍 Release Info`,
+    `📅 Release: ${release.releaseDate}`,
+    `💰 Retail: ${release.retailPrice}`,
+    `📈 Est. Resale: ${release.estimatedResale}`,
+    `🏪 Retailers: ${release.retailers.length > 0 ? release.retailers.join(', ') : 'TBD'}`,
+    `──────────────────`,
+    `Reply "add ${fullName}" to monitor`,
+  ].join('\n');
+
+  // Try sending with a product image if found
+  if (release.imageUrl) {
+    const sent = await sendTelegramPhoto(chatId, release.imageUrl, caption);
+    if (sent) return;
+  }
+
+  await sendTelegramMessage(chatId, caption);
 }
 
 // ─── Main handler ────────────────────────────────────────────────────
@@ -435,22 +578,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const update = req.body;
-
-    // Extract message from update
     const message = update?.message;
     if (!message) {
       return res.status(200).json({ success: true, data: 'No message in update' });
     }
 
-    const chatId = String(message.chat?.id ?? TELEGRAM_CHAT_ID);
+    const chatId = String(message.chat?.id ?? process.env.TELEGRAM_CHAT_ID!);
 
     // Handle photo messages
     if (message.photo && message.photo.length > 0) {
-      // Get the highest resolution photo
       const photo = message.photo[message.photo.length - 1];
       const base64Image = await downloadTelegramFile(photo.file_id);
-      const reply = await handleImage(base64Image);
-      await sendTelegramMessage(chatId, reply);
+      await handleImageMessage(chatId, base64Image);
       return res.status(200).json({ success: true, data: 'Image processed' });
     }
 
@@ -461,17 +600,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const parsed = await classifyIntent(text);
-    let reply: string;
 
+    // search_release and image have special handling (they send messages themselves for photo support)
+    if (parsed.intent === 'search_release') {
+      await handleSearchRelease(chatId, parsed.params);
+      return res.status(200).json({ success: true, data: 'Message processed' });
+    }
+
+    let reply: string;
     switch (parsed.intent) {
       case 'add_to_watchlist':
         reply = await handleAddToWatchlist(parsed.params);
         break;
       case 'remove_from_watchlist':
         reply = await handleRemoveFromWatchlist(parsed.params);
-        break;
-      case 'search_release':
-        reply = await handleSearchRelease(parsed.params);
         break;
       case 'list_watchlist':
         reply = await handleListWatchlist();
@@ -501,8 +643,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ success: true, data: 'Message processed' });
   } catch (error) {
     console.error('Webhook error:', error);
-    // Send error details to Telegram for debugging
-    const chatId = req.body?.message?.chat?.id ?? TELEGRAM_CHAT_ID;
+    const chatId = req.body?.message?.chat?.id ?? process.env.TELEGRAM_CHAT_ID!;
     const errMsg = error instanceof Error ? error.message : String(error);
     try {
       await sendTelegramMessage(String(chatId), `⚠️ Bot error: ${errMsg}`);

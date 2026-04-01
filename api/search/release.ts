@@ -5,38 +5,36 @@ import type { ReleaseInfo } from '../types.js';
 const together = new Together({ apiKey: process.env.TOGETHER_API_KEY! });
 const RESEARCH_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
 
-const SNEAKER_SOURCES = [
-  { name: 'SneakerNews', url: (q: string) => `https://sneakernews.com/?s=${encodeURIComponent(q)}` },
-  { name: 'StockX', url: (q: string) => `https://stockx.com/search?s=${encodeURIComponent(q)}` },
-  { name: 'GOAT', url: (q: string) => `https://www.goat.com/search?query=${encodeURIComponent(q)}` },
-  { name: 'Google', url: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q + ' sneaker release date retail price site:sneakernews.com OR site:solecollector.com OR site:hypebeast.com')}` },
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
 ];
 
-interface ScrapeResult {
-  text: string;
-  sourceUrls: string[];
-}
+const SNEAKER_SOURCES = [
+  { name: 'Google', url: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q + ' sneaker release date retail price site:sneakernews.com OR site:solecollector.com OR site:kicksonfire.com OR site:nicekicks.com')}` },
+  { name: 'SneakerNews', url: (q: string) => `https://sneakernews.com/?s=${encodeURIComponent(q)}` },
+  { name: 'StockX', url: (q: string) => `https://stockx.com/search?s=${encodeURIComponent(q)}` },
+  { name: 'KicksOnFire', url: (q: string) => `https://www.kicksonfire.com/?s=${encodeURIComponent(q)}` },
+  { name: 'NiceKicks', url: (q: string) => `https://nicekicks.com/?s=${encodeURIComponent(q)}` },
+  { name: 'GOAT', url: (q: string) => `https://www.goat.com/search?query=${encodeURIComponent(q)}` },
+];
 
-async function scrapeWebData(query: string): Promise<ScrapeResult> {
+async function scrapeWebData(query: string): Promise<{ text: string; sourceUrls: string[] }> {
   const results: string[] = [];
   const sourceUrls: string[] = [];
-  const userAgents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-  ];
 
   const fetches = SNEAKER_SOURCES.map(async (source) => {
     const sourceUrl = source.url(query);
     try {
       const res = await fetch(sourceUrl, {
         headers: {
-          'User-Agent': userAgents[Math.floor(Math.random() * userAgents.length)],
+          'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
           'Accept': 'text/html,application/xhtml+xml',
           'Accept-Language': 'en-US,en;q=0.9',
         },
         signal: AbortSignal.timeout(8000),
       });
-      if (!res.ok) return { text: '', url: sourceUrl, name: source.name, ok: false };
+      if (!res.ok) return null;
       const html = await res.text();
       const text = html
         .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -45,15 +43,15 @@ async function scrapeWebData(query: string): Promise<ScrapeResult> {
         .replace(/\s+/g, ' ')
         .trim()
         .slice(0, 3000);
-      return { text: `[Source: ${source.name}]\n${text}`, url: sourceUrl, name: source.name, ok: true };
+      return { text: `[Source: ${source.name}]\n${text}`, url: sourceUrl };
     } catch {
-      return { text: '', url: sourceUrl, name: source.name, ok: false };
+      return null;
     }
   });
 
   const scraped = await Promise.all(fetches);
   for (const item of scraped) {
-    if (item.ok && item.text) {
+    if (item) {
       results.push(item.text);
       sourceUrls.push(item.url);
     }
@@ -70,15 +68,16 @@ export async function searchReleaseInfo(name: string): Promise<ReleaseInfo> {
     messages: [
       {
         role: 'system',
-        content: `You are a sneaker data extractor. You will be given REAL scraped web data about a sneaker. Extract ONLY factual information found in the provided data. Do NOT make up or guess any information.
+        content: `You are a sneaker data extractor. You will be given REAL scraped web data about a sneaker.
 
-Rules:
-- ONLY use facts explicitly stated in the scraped data below
-- If a specific piece of info is not found in the data, use "Unknown"
-- For release dates, use exact dates found in the data (YYYY-MM-DD format)
+CRITICAL RULES:
+- ONLY use facts explicitly stated in the scraped data
+- If a specific piece of info is NOT found in the data, you MUST use "Unknown"
+- Do NOT guess, infer, or make up ANY information
+- For release dates, use exact dates found in the data
 - For prices, use exact prices found in the data (include $ sign)
-- For resale, only include if you find actual market data
-- Do NOT hallucinate or infer information not present in the data
+- For resale estimates, only include if actual market data is present
+- If the scraped data is empty or irrelevant, return ALL fields as "Unknown"
 
 Return ONLY valid JSON:
 {"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}`,
