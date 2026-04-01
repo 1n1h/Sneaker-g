@@ -331,22 +331,61 @@ async function handleCheckStatus(params: Record<string, string>): Promise<string
 }
 
 async function handleGetCalendar(): Promise<string> {
+  // Scrape real release calendars
+  const calendarSources = [
+    `https://sneakernews.com/release-dates/`,
+    `https://www.google.com/search?q=${encodeURIComponent('sneaker release dates this week ' + new Date().toISOString().slice(0, 10) + ' site:sneakernews.com OR site:solecollector.com OR site:nikeshoesreleasedates.com')}`,
+  ];
+
+  const results: string[] = [];
+  for (const url of calendarSources) {
+    try {
+      const fetchRes = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+          'Accept': 'text/html',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!fetchRes.ok) continue;
+      const html = await fetchRes.text();
+      const text = html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 5000);
+      results.push(text);
+    } catch {
+      continue;
+    }
+  }
+
+  const webData = results.join('\n\n---\n\n');
+
   const res = await together.chat.completions.create({
     model: RESEARCH_MODEL,
     messages: [
       {
         role: 'system',
-        content:
-          'You are a sneaker release calendar expert. List the most notable upcoming sneaker releases in the next 2 weeks. Return a concise list with name, date, and retail price. Format as plain text bullet points.',
+        content: `You are a sneaker release calendar extractor. You will be given REAL scraped web data from sneaker release calendar sites. Extract ONLY the actual upcoming releases found in the data. Do NOT make up any releases. Today's date is ${new Date().toISOString().slice(0, 10)}.
+
+Rules:
+- ONLY list releases that are explicitly mentioned in the scraped data
+- Include the exact dates, shoe names, and prices found in the data
+- If no upcoming releases are found in the data, say "Could not find upcoming release data. Check https://sneakernews.com/release-dates/ for the latest calendar."
+- Format as a clean bullet point list`,
       },
-      { role: 'user', content: 'What are the upcoming sneaker releases?' },
+      { role: 'user', content: `Extract upcoming sneaker releases from this data:\n\n${webData || 'No data found.'}` },
     ],
     max_tokens: 1024,
-    temperature: 0.3,
+    temperature: 0,
   });
 
-  const calendarText = res.choices?.[0]?.message?.content?.trim() ?? 'No upcoming releases found.';
-  return `\ud83d\udcc6 *Upcoming Releases*\n\n${calendarText}`;
+  const calendarText = res.choices?.[0]?.message?.content?.trim() ?? 'Could not retrieve release calendar.';
+  return `📆 Upcoming Releases - Sneaker G\n──────────────────\n${calendarText}\n──────────────────\n🔗 Source: https://sneakernews.com/release-dates/`;
 }
 
 async function handlePauseMonitoring(): Promise<string> {
@@ -366,7 +405,7 @@ async function handleGeneralChat(text: string): Promise<string> {
       {
         role: 'system',
         content:
-          'You are Sneaker G, a friendly sneaker bot assistant. Keep responses concise and sneaker-themed. Use sneaker slang where appropriate.',
+          'You are Sneaker G, a friendly sneaker bot assistant. Keep responses concise and sneaker-themed. IMPORTANT: Do NOT make up specific release dates, prices, or stock information. If the user asks about specific releases or dates, tell them to use the "search [shoe name]" command for accurate info scraped from real sources. You can discuss general sneaker knowledge, culture, and tips.',
       },
       { role: 'user', content: text },
     ],
