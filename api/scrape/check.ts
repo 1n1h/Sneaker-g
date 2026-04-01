@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Redis } from '@upstash/redis';
 import Together from 'together-ai';
 import { v4 as uuidv4 } from 'uuid';
-import type { WatchlistEntry, ScrapeHistoryEntry } from '../../src/types/index';
+import type { WatchlistEntry, ScrapeHistoryEntry } from '../types.js';
 
 const redis = new Redis({
   url: process.env.STORAGE_KV_REST_API_URL!,

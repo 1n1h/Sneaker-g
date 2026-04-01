@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Together from 'together-ai';
-import type { IdentifyResult, ReleaseInfo } from '../../src/types/index';
+import type { IdentifyResult, ReleaseInfo } from '../types.js';
 
 const together = new Together({ apiKey: process.env.TOGETHER_API_KEY! });
 const VISION_MODEL = 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-Turbo';

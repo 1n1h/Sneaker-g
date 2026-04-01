@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Together from 'together-ai';
-import type { ReleaseInfo } from '../../src/types/index';
+import type { ReleaseInfo } from '../types.js';
 
 const together = new Together({ apiKey: process.env.TOGETHER_API_KEY! });
 const RESEARCH_MODEL = 'meta-llama/Meta-Llama-3.3-70B-Instruct-Turbo';
