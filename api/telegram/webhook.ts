@@ -439,67 +439,117 @@ async function handleCheckStatus(params: Record<string, string>): Promise<string
   return `📊 System Status\n\n🤖 Monitoring: ${monitoringStatus === 'active' ? '🟢 Active' : '⏸️ Paused'}\n👟 Shoes tracked: ${watchlist.length}\n🟢 Active: ${watchlist.filter((e) => e.status === 'monitoring').length}\n⏸️ Paused: ${watchlist.filter((e) => e.status === 'paused').length}`;
 }
 
+async function parseSneakerNewsCalendar(): Promise<string[]> {
+  // Directly parse structured HTML from SneakerNews release calendar
+  try {
+    const res = await fetch('https://sneakernews.com/release-dates/', {
+      headers: { 'User-Agent': randomUA(), 'Accept': 'text/html', 'Accept-Language': 'en-US,en;q=0.9' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+
+    const releases: string[] = [];
+    // Extract product entries: name from prod-name class, date from nearby date fields, price from prod-price
+    // Pattern: each release card has a prod-name link and associated date/price
+    const entryPattern = /class="prod-name"[^>]*href="[^"]*">([^<]+)<\/a>[\s\S]*?<span[^>]*class="[^"]*date[^"]*"[^>]*>([^<]+)<\/span>(?:[\s\S]*?class="[^"]*price[^"]*"[^>]*>\$?([\d,.]+))?/gi;
+
+    let match;
+    while ((match = entryPattern.exec(html)) !== null && releases.length < 30) {
+      const name = match[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim();
+      const date = match[2].trim();
+      const price = match[3] ? `$${match[3].trim()}` : '';
+      releases.push(price ? `• ${date} — ${name} — ${price}` : `• ${date} — ${name}`);
+    }
+
+    // Fallback: simpler extraction if regex above didn't match
+    if (releases.length === 0) {
+      // Extract all prod-names with their associated dates from nearby HTML
+      const nameMatches = [...html.matchAll(/class="prod-name"[^>]*>([^<]+)</g)];
+      const dateMatches = [...html.matchAll(/((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s*\d{0,4})/gi)];
+      const priceMatches = [...html.matchAll(/\$(\d{2,4})/g)];
+
+      const count = Math.min(nameMatches.length, dateMatches.length, 20);
+      for (let i = 0; i < count; i++) {
+        const name = nameMatches[i][1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim();
+        const date = dateMatches[i][1].trim();
+        const price = priceMatches[i] ? `$${priceMatches[i][1]}` : '';
+        releases.push(price ? `• ${date} — ${name} — ${price}` : `• ${date} — ${name}`);
+      }
+    }
+
+    return releases;
+  } catch {
+    return [];
+  }
+}
+
 async function handleGetCalendar(): Promise<string> {
-  const calendarSources = [
-    { name: 'SneakerNews', url: 'https://sneakernews.com/release-dates/' },
+  // Parse SneakerNews calendar directly (structured HTML)
+  const snReleases = await parseSneakerNewsCalendar();
+
+  // Also scrape other sources for additional data
+  const otherSources = [
     { name: 'SoleCollector', url: 'https://solecollector.com/sneaker-release-dates' },
     { name: 'KicksOnFire', url: 'https://www.kicksonfire.com/release-dates/' },
     { name: 'NiceKicks', url: 'https://nicekicks.com/sneaker-release-dates/' },
-    { name: 'Google', url: `https://www.google.com/search?q=${encodeURIComponent('sneaker release dates this week april 2026 site:sneakernews.com OR site:solecollector.com OR site:kicksonfire.com OR site:nicekicks.com')}` },
   ];
 
-  const results: string[] = [];
-  const successSources: string[] = [];
-
-  const fetches = calendarSources.map(async (source) => {
-    const text = await fetchPage(source.url, 5000);
-    if (text) {
-      return { text: `[Source: ${source.name}]\n${text}`, name: source.name, url: source.url };
-    }
-    return null;
+  let extraData = '';
+  const fetches = otherSources.map(async (source) => {
+    const text = await fetchPage(source.url, 8000);
+    return text ? `[Source: ${source.name}]\n${text}` : '';
   });
-
   const scraped = await Promise.all(fetches);
-  for (const item of scraped) {
-    if (item) {
-      results.push(item.text);
-      successSources.push(item.url);
-    }
-  }
+  extraData = scraped.filter(Boolean).join('\n\n---\n\n');
 
-  const webData = results.join('\n\n---\n\n');
   const today = new Date().toISOString().slice(0, 10);
 
-  const res = await together.chat.completions.create({
-    model: RESEARCH_MODEL,
-    messages: [
-      {
-        role: 'system',
-        content: `You are a sneaker release calendar extractor. You will be given REAL scraped web data from sneaker release calendar sites. Today's date is ${today}.
+  // If we got structured data from SneakerNews, use it directly + supplement from other sources
+  let calendarText: string;
+
+  if (snReleases.length > 0) {
+    // Filter to upcoming only (this week / next 14 days) using LLM since dates vary in format
+    const res = await together.chat.completions.create({
+      model: RESEARCH_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: `You are a date filter. Today is ${today}. You will be given a list of sneaker releases with dates. Return ONLY the releases that fall within the next 14 days from today. Keep the exact format of each line. If none fall within that window, return the next 10 upcoming releases regardless of date. Do NOT add, modify, or invent any entries.`,
+        },
+        {
+          role: 'user',
+          content: `Filter these releases to upcoming ones:\n\n${snReleases.join('\n')}${extraData ? '\n\nAdditional data from other sources (extract any releases with dates not already listed):\n' + extraData : ''}`,
+        },
+      ],
+      max_tokens: 1024,
+      temperature: 0,
+    });
+    calendarText = res.choices?.[0]?.message?.content?.trim() ?? snReleases.slice(0, 10).join('\n');
+  } else {
+    // Fallback to LLM extraction from other sources
+    const res = await together.chat.completions.create({
+      model: RESEARCH_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: `You are a sneaker release calendar extractor. Today is ${today}.
 
 CRITICAL RULES:
-- ONLY list releases that are EXPLICITLY mentioned in the scraped data with specific dates
-- Include the EXACT dates, shoe names, and prices as they appear in the data
-- Do NOT make up, guess, or invent ANY releases
-- Do NOT add shoes that are not in the scraped data
-- If you cannot find specific upcoming releases in the data, respond ONLY with: "Could not extract specific upcoming releases from the scraped data."
-- Focus on releases within the next 14 days from today
-- Format each release as: "• [Date] - [Shoe Name] - [Price if available]"`,
-      },
-      { role: 'user', content: `Extract upcoming sneaker releases from this data:\n\n${webData || 'No data found.'}` },
-    ],
-    max_tokens: 1024,
-    temperature: 0,
-  });
-
-  const calendarText = res.choices?.[0]?.message?.content?.trim() ?? 'Could not retrieve release calendar.';
-
-  let sourcesText = '\n\n🔗 Sources:';
-  for (const url of successSources.slice(0, 3)) {
-    sourcesText += `\n${url}`;
+- ONLY list releases EXPLICITLY mentioned in the data with specific dates
+- Do NOT make up ANY releases
+- Format as: "• [Date] — [Shoe Name] — [Price if available]"
+- If no releases found, say "Could not extract releases. Check the sources below."`,
+        },
+        { role: 'user', content: `Extract releases:\n\n${extraData || 'No data found.'}` },
+      ],
+      max_tokens: 1024,
+      temperature: 0,
+    });
+    calendarText = res.choices?.[0]?.message?.content?.trim() ?? 'Could not retrieve release calendar.';
   }
 
-  return `📆 Upcoming Releases - Sneaker G\n──────────────────\n${calendarText}\n──────────────────${sourcesText}`;
+  return `📆 Upcoming Releases - Sneaker G\n──────────────────\n${calendarText}\n──────────────────\n\n🔗 Sources:\nhttps://sneakernews.com/release-dates/\nhttps://solecollector.com/sneaker-release-dates\nhttps://nicekicks.com/sneaker-release-dates/`;
 }
 
 async function handlePauseMonitoring(): Promise<string> {
