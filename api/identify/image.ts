@@ -3,7 +3,7 @@ import Together from 'together-ai';
 import type { IdentifyResult, ReleaseInfo } from '../types.js';
 
 const together = new Together({ apiKey: process.env.TOGETHER_API_KEY! });
-const VISION_MODEL = 'moonshotai/Kimi-K2.5';
+const VISION_MODEL = 'Qwen/Qwen3-VL-8B-Instruct';
 const RESEARCH_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
 
 const USER_AGENTS = [
@@ -11,23 +11,26 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
 ];
 
-async function identifyShoe(base64Image: string): Promise<IdentifyResult> {
+function cleanBase64(input: string): string {
+  // Strip data URL prefix if present, return raw base64
+  return input.replace(/^data:image\/[^;]+;base64,/, '');
+}
+
+async function identifyShoe(rawImage: string): Promise<IdentifyResult> {
+  const base64 = cleanBase64(rawImage);
   const res = await together.chat.completions.create({
     model: VISION_MODEL,
     messages: [
       {
-        role: 'system',
-        content: `You are a sneaker identification expert. Analyze the image and identify the sneaker. Return ONLY valid JSON with these exact fields:
-{"brand": "...", "model": "...", "colorway": "...", "year": "...", "confidence": 0.0}
-confidence is a float from 0 to 1 indicating how sure you are. If you cannot identify the sneaker, set confidence below 0.3 and use "Unknown" for fields you cannot determine.`,
-      },
-      {
         role: 'user',
         content: [
-          { type: 'text', text: 'Identify this sneaker from the image.' },
+          {
+            type: 'text',
+            text: 'Identify this sneaker shoe. Return ONLY valid JSON with these fields: {"brand": "Nike/Adidas/etc", "model": "exact model name", "colorway": "color description", "year": "release year", "confidence": 0.0 to 1.0}. Be specific with the model name.',
+          },
           {
             type: 'image_url',
-            image_url: { url: `data:image/jpeg;base64,${base64Image}` },
+            image_url: { url: `data:image/jpeg;base64,${base64}` },
           },
         ],
       },
@@ -37,6 +40,7 @@ confidence is a float from 0 to 1 indicating how sure you are. If you cannot ide
   });
 
   const raw = res.choices?.[0]?.message?.content?.trim() ?? '{}';
+  console.log('Vision model raw response:', raw);
   try {
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (jsonMatch) return JSON.parse(jsonMatch[0]) as IdentifyResult;
@@ -46,32 +50,39 @@ confidence is a float from 0 to 1 indicating how sure you are. If you cannot ide
   return { brand: 'Unknown', model: 'Unknown', colorway: 'Unknown', year: 'Unknown', confidence: 0 };
 }
 
+async function fetchPage(url: string, maxChars = 3000): Promise<string> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
+        'Accept': 'text/html',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return '';
+    const html = await res.text();
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, maxChars);
+  } catch {
+    return '';
+  }
+}
+
 async function searchRelease(name: string): Promise<ReleaseInfo> {
-  const sourceUrls = [
-    `https://www.google.com/search?q=${encodeURIComponent(name + ' release date retail price resale value')}`,
+  const sources = [
+    `https://www.google.com/search?q=${encodeURIComponent(name + ' sneaker release date retail price resale value')}`,
     `https://sneakernews.com/?s=${encodeURIComponent(name)}`,
+    `https://stockx.com/search?s=${encodeURIComponent(name)}`,
   ];
 
-  const fetchPage = async (url: string): Promise<string> => {
-    try {
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
-          'Accept': 'text/html',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        signal: AbortSignal.timeout(6000),
-      });
-      if (!res.ok) return '';
-      const html = await res.text();
-      return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 3000);
-    } catch {
-      return '';
-    }
-  };
-
-  const [googleText, sneakerNewsText] = await Promise.all(sourceUrls.map(fetchPage));
-  const combinedText = `Google results:\n${googleText}\n\nSneakerNews results:\n${sneakerNewsText}`;
+  const results = await Promise.all(sources.map((url) => fetchPage(url)));
+  const webData = results.filter(Boolean).map((t, i) => `[Source ${i + 1}]\n${t}`).join('\n\n---\n\n');
 
   try {
     const llmRes = await together.chat.completions.create({
@@ -79,13 +90,13 @@ async function searchRelease(name: string): Promise<ReleaseInfo> {
       messages: [
         {
           role: 'system',
-          content: `You are a sneaker data extractor. ONLY extract information from the provided search data. Do NOT make up or hallucinate any data. Return ONLY valid JSON:
-{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}
-If a field is not found in the data, use "Unknown" for strings and empty array for retailers. Use YYYY-MM-DD for dates and include $ for prices.`,
+          content: `You are a sneaker data extractor. Extract ONLY factual information from the scraped web data. Do NOT make up or guess anything. If info is not found, use "Unknown".
+Return ONLY valid JSON:
+{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}`,
         },
         {
           role: 'user',
-          content: `Extract release info for "${name}" ONLY from this search data. If information is not present, use "Unknown":\n\n${combinedText}`,
+          content: `Extract release info for "${name}" from this data:\n\n${webData || 'No data. Return all as Unknown.'}`,
         },
       ],
       max_tokens: 512,
@@ -96,7 +107,7 @@ If a field is not found in the data, use "Unknown" for strings and empty array f
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]) as ReleaseInfo;
-      parsed.sourceUrls = sourceUrls;
+      parsed.sourceUrls = sources;
       return parsed;
     }
   } catch {
@@ -110,7 +121,7 @@ If a field is not found in the data, use "Unknown" for strings and empty array f
     retailPrice: 'Unknown',
     estimatedResale: 'Unknown',
     colorway: 'Unknown',
-    sourceUrls,
+    sourceUrls: sources,
   };
 }
 
@@ -126,22 +137,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ success: false, error: 'Missing required field: image (base64 string)' });
     }
 
-    // Step 1: Identify the shoe from the image
     const identification = await identifyShoe(image);
-
-    // Step 2: Auto-search release info using identified name
     const fullName = `${identification.brand} ${identification.model}`;
     const release = await searchRelease(fullName);
 
     return res.status(200).json({
       success: true,
-      data: {
-        identification,
-        release,
-      },
+      data: { identification, release },
     });
   } catch (error) {
     console.error('Image identify error:', error);
-    return res.status(500).json({ success: false, error: 'Internal server error' });
+    const errMsg = error instanceof Error ? error.message : String(error);
+    return res.status(500).json({ success: false, error: errMsg });
   }
 }

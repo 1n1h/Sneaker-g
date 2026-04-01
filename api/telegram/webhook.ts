@@ -12,7 +12,7 @@ const redis = new Redis({
 const together = new Together({ apiKey: process.env.TOGETHER_API_KEY! });
 
 const RESEARCH_MODEL = 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
-const VISION_MODEL = 'moonshotai/Kimi-K2.5';
+const VISION_MODEL = 'Qwen/Qwen3-VL-8B-Instruct';
 
 // ─── Telegram helpers ────────────────────────────────────────────────
 
@@ -288,20 +288,17 @@ Return ONLY valid JSON:
 
 // ─── Image identification ───────────────────────────────────────────
 
-async function identifyShoe(base64Image: string): Promise<IdentifyResult> {
+async function identifyShoe(base64Image: string, userMessage = ''): Promise<IdentifyResult> {
+  const prompt = userMessage
+    ? `${userMessage}. Also identify this sneaker shoe and return the result as JSON.`
+    : 'Identify this sneaker shoe. Return ONLY valid JSON with: {"brand": "...", "model": "exact model name", "colorway": "...", "year": "...", "confidence": 0.0 to 1.0}';
   const res = await together.chat.completions.create({
     model: VISION_MODEL,
     messages: [
       {
-        role: 'system',
-        content: `You are a sneaker identification expert. Identify the sneaker in the image. Return ONLY valid JSON:
-{"brand": "...", "model": "...", "colorway": "...", "year": "...", "confidence": 0.0}
-confidence is 0-1. If unsure, set lower confidence.`,
-      },
-      {
         role: 'user',
         content: [
-          { type: 'text', text: 'Identify this sneaker.' },
+          { type: 'text', text: prompt + '\nReturn ONLY valid JSON: {"brand": "...", "model": "...", "colorway": "...", "year": "...", "confidence": 0.0}' },
           {
             type: 'image_url',
             image_url: { url: `data:image/jpeg;base64,${base64Image}` },
@@ -649,8 +646,8 @@ CRITICAL RULES:
 
 // ─── Image handler ───────────────────────────────────────────────────
 
-async function handleImageMessage(chatId: string, base64Image: string): Promise<void> {
-  const identification = await identifyShoe(base64Image);
+async function handleImageMessage(chatId: string, base64Image: string, userMessage = ''): Promise<void> {
+  const identification = await identifyShoe(base64Image, userMessage);
   const fullName = `${identification.brand} ${identification.model}`;
   const release = await searchRelease(fullName);
 
@@ -696,11 +693,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const chatId = String(message.chat?.id ?? process.env.TELEGRAM_CHAT_ID!);
 
-    // Handle photo messages
+    // Handle photo messages (with optional caption/question)
     if (message.photo && message.photo.length > 0) {
       const photo = message.photo[message.photo.length - 1];
+      const userCaption = message.caption || '';
+      await sendTelegramMessage(chatId, '🔍 Analyzing image... this may take a moment.');
       const base64Image = await downloadTelegramFile(photo.file_id);
-      await handleImageMessage(chatId, base64Image);
+      await handleImageMessage(chatId, base64Image, userCaption);
       return res.status(200).json({ success: true, data: 'Image processed' });
     }
 
