@@ -325,8 +325,61 @@ confidence is 0-1. If unsure, set lower confidence.`,
 
 // ─── Intent handlers ─────────────────────────────────────────────────
 
-async function handleAddToWatchlist(params: Record<string, string>): Promise<string> {
+async function findShoeImage(name: string): Promise<string | null> {
+  const sources = [
+    `https://sneakernews.com/?s=${encodeURIComponent(name)}`,
+    `https://stockx.com/search?s=${encodeURIComponent(name)}`,
+    `https://www.google.com/search?q=${encodeURIComponent(name + ' sneaker')}&tbm=isch`,
+  ];
+
+  for (const url of sources) {
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': randomUA(), 'Accept': 'text/html', 'Accept-Language': 'en-US,en;q=0.9' },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!res.ok) continue;
+      const html = await res.text();
+
+      // Try og:image
+      const ogMatch = html.match(/property="og:image"\s+content="([^"]+)"/i)
+        ?? html.match(/content="([^"]+)"\s+property="og:image"/i);
+      if (ogMatch?.[1] && !ogMatch[1].includes('logo') && !ogMatch[1].includes('favicon')) {
+        return ogMatch[1];
+      }
+
+      // Try product images
+      const imgMatches = [...html.matchAll(/<img[^>]+src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi)];
+      const keywords = name.toLowerCase().split(' ').filter(w => w.length > 2);
+      for (const match of imgMatches) {
+        const src = match[1];
+        const lower = src.toLowerCase();
+        if (lower.includes('logo') || lower.includes('icon') || lower.includes('1x1')) continue;
+        if (keywords.some(k => lower.includes(k)) || lower.includes('product') || lower.includes('sneaker')) {
+          return src;
+        }
+      }
+
+      // Fallback: first real image from sneaker sites
+      if (url.includes('sneakernews') || url.includes('stockx')) {
+        for (const match of imgMatches) {
+          const src = match[1];
+          if (!src.includes('logo') && !src.includes('icon') && !src.includes('avatar')) return src;
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+async function handleAddToWatchlist(chatId: string, params: Record<string, string>): Promise<void> {
   const name = params.name ?? 'Unknown Shoe';
+
+  // Scrape for an image
+  const imageUrl = await findShoeImage(name);
+
   const entry: WatchlistEntry = {
     id: uuidv4(),
     name,
@@ -337,7 +390,7 @@ async function handleAddToWatchlist(params: Record<string, string>): Promise<str
     lastChecked: null,
     status: 'monitoring',
     lastResult: null,
-    imageUrl: null,
+    imageUrl,
     notes: null,
   };
 
@@ -345,7 +398,15 @@ async function handleAddToWatchlist(params: Record<string, string>): Promise<str
   watchlist.push(entry);
   await redis.set('watchlist', watchlist);
 
-  return `✅ Added to Watchlist!\n\n👟 ${name}\n🏪 Retailer: ${entry.retailer}\n⏰ Check every: ${entry.scrapeInterval} min\n📌 ID: ${entry.id}\n\nI'll keep an eye on this for you!`;
+  const caption = `✅ Added to Watchlist!\n\n👟 ${name}\n🏪 Retailer: ${entry.retailer}\n⏰ Check every: ${entry.scrapeInterval} min\n📌 ID: ${entry.id}\n\nI'll keep an eye on this for you!`;
+
+  // Send with image if found
+  if (imageUrl) {
+    const sent = await sendTelegramPhoto(chatId, imageUrl, caption);
+    if (sent) return;
+  }
+
+  await sendTelegramMessage(chatId, caption);
 }
 
 async function handleRemoveFromWatchlist(params: Record<string, string>): Promise<string> {
@@ -651,17 +712,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const parsed = await classifyIntent(text);
 
-    // search_release and image have special handling (they send messages themselves for photo support)
+    // These intents send messages themselves (for photo support)
     if (parsed.intent === 'search_release') {
       await handleSearchRelease(chatId, parsed.params);
+      return res.status(200).json({ success: true, data: 'Message processed' });
+    }
+    if (parsed.intent === 'add_to_watchlist') {
+      await handleAddToWatchlist(chatId, parsed.params);
       return res.status(200).json({ success: true, data: 'Message processed' });
     }
 
     let reply: string;
     switch (parsed.intent) {
-      case 'add_to_watchlist':
-        reply = await handleAddToWatchlist(parsed.params);
-        break;
       case 'remove_from_watchlist':
         reply = await handleRemoveFromWatchlist(parsed.params);
         break;
