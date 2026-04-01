@@ -12,7 +12,6 @@ const USER_AGENTS = [
 ];
 
 function cleanBase64(input: string): string {
-  // Strip data URL prefix if present, return raw base64
   return input.replace(/^data:image\/[^;]+;base64,/, '');
 }
 
@@ -26,7 +25,7 @@ async function identifyShoe(rawImage: string): Promise<IdentifyResult> {
         content: [
           {
             type: 'text',
-            text: 'Identify this sneaker shoe. Return ONLY valid JSON with these fields: {"brand": "Nike/Adidas/etc", "model": "exact model name", "colorway": "color description", "year": "release year", "confidence": 0.0 to 1.0}. Be specific with the model name.',
+            text: 'Identify this sneaker shoe. Return ONLY valid JSON: {"brand": "...", "model": "exact model name", "colorway": "color description", "year": "release year", "confidence": 0.0 to 1.0}. Be specific.',
           },
           {
             type: 'image_url',
@@ -40,17 +39,15 @@ async function identifyShoe(rawImage: string): Promise<IdentifyResult> {
   });
 
   const raw = res.choices?.[0]?.message?.content?.trim() ?? '{}';
-  console.log('Vision model raw response:', raw);
+  console.log('Vision response:', raw);
   try {
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (jsonMatch) return JSON.parse(jsonMatch[0]) as IdentifyResult;
-  } catch {
-    // fall through
-  }
+  } catch { /* fall through */ }
   return { brand: 'Unknown', model: 'Unknown', colorway: 'Unknown', year: 'Unknown', confidence: 0 };
 }
 
-async function fetchPage(url: string, maxChars = 3000): Promise<string> {
+async function fetchPage(url: string, maxChars = 4000): Promise<string> {
   try {
     const res = await fetch(url, {
       headers: {
@@ -75,44 +72,49 @@ async function fetchPage(url: string, maxChars = 3000): Promise<string> {
 }
 
 async function searchRelease(name: string): Promise<ReleaseInfo> {
+  // Use DuckDuckGo (doesn't block server IPs) + sneaker sites
   const sources = [
-    `https://www.google.com/search?q=${encodeURIComponent(name + ' sneaker release date retail price resale value')}`,
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(name + ' sneaker release date retail price resale')}`,
     `https://sneakernews.com/?s=${encodeURIComponent(name)}`,
-    `https://stockx.com/search?s=${encodeURIComponent(name)}`,
+    `https://www.kicksonfire.com/?s=${encodeURIComponent(name)}`,
   ];
 
   const results = await Promise.all(sources.map((url) => fetchPage(url)));
   const webData = results.filter(Boolean).map((t, i) => `[Source ${i + 1}]\n${t}`).join('\n\n---\n\n');
+  const hasData = webData.length > 100;
 
+  const llmRes = await together.chat.completions.create({
+    model: RESEARCH_MODEL,
+    messages: [
+      {
+        role: 'system',
+        content: hasData
+          ? `You are a sneaker data extractor. Extract factual information from the scraped web data. Prioritize data explicitly found in the text. Return ONLY valid JSON:
+{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}`
+          : `You are a sneaker expert. Provide your best known information about this shoe. Return ONLY valid JSON:
+{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}
+Use your training knowledge. If truly unknown, use "Unknown".`,
+      },
+      {
+        role: 'user',
+        content: hasData
+          ? `Extract release info for "${name}" from this data:\n\n${webData}`
+          : `What are the release details for: ${name}`,
+      },
+    ],
+    max_tokens: 512,
+    temperature: 0,
+  });
+
+  const raw = llmRes.choices?.[0]?.message?.content?.trim() ?? '{}';
   try {
-    const llmRes = await together.chat.completions.create({
-      model: RESEARCH_MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: `You are a sneaker data extractor. Extract ONLY factual information from the scraped web data. Do NOT make up or guess anything. If info is not found, use "Unknown".
-Return ONLY valid JSON:
-{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}`,
-        },
-        {
-          role: 'user',
-          content: `Extract release info for "${name}" from this data:\n\n${webData || 'No data. Return all as Unknown.'}`,
-        },
-      ],
-      max_tokens: 512,
-      temperature: 0,
-    });
-
-    const raw = llmRes.choices?.[0]?.message?.content?.trim() ?? '{}';
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]) as ReleaseInfo;
-      parsed.sourceUrls = sources;
+      parsed.sourceUrls = hasData ? sources : [];
       return parsed;
     }
-  } catch {
-    // fall through
-  }
+  } catch { /* fall through */ }
 
   return {
     name,
@@ -132,9 +134,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { image } = req.body ?? {};
-
     if (!image || typeof image !== 'string') {
-      return res.status(400).json({ success: false, error: 'Missing required field: image (base64 string)' });
+      return res.status(400).json({ success: false, error: 'Missing required field: image' });
     }
 
     const identification = await identifyShoe(image);

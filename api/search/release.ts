@@ -11,9 +11,8 @@ const USER_AGENTS = [
 ];
 
 const SNEAKER_SOURCES = [
-  { name: 'Google', url: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q + ' sneaker release date retail price site:sneakernews.com OR site:solecollector.com OR site:kicksonfire.com OR site:nicekicks.com')}` },
+  { name: 'DuckDuckGo', url: (q: string) => `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q + ' sneaker release date retail price resale')}` },
   { name: 'SneakerNews', url: (q: string) => `https://sneakernews.com/?s=${encodeURIComponent(q)}` },
-  { name: 'StockX', url: (q: string) => `https://stockx.com/search?s=${encodeURIComponent(q)}` },
   { name: 'KicksOnFire', url: (q: string) => `https://www.kicksonfire.com/?s=${encodeURIComponent(q)}` },
   { name: 'NiceKicks', url: (q: string) => `https://nicekicks.com/?s=${encodeURIComponent(q)}` },
   { name: 'GOAT', url: (q: string) => `https://www.goat.com/search?query=${encodeURIComponent(q)}` },
@@ -62,29 +61,26 @@ async function scrapeWebData(query: string): Promise<{ text: string; sourceUrls:
 
 export async function searchReleaseInfo(name: string): Promise<ReleaseInfo> {
   const { text: webData, sourceUrls } = await scrapeWebData(name);
+  const hasData = webData.length > 100;
 
   const completion = await together.chat.completions.create({
     model: RESEARCH_MODEL,
     messages: [
       {
         role: 'system',
-        content: `You are a sneaker data extractor. You will be given REAL scraped web data about a sneaker.
-
-CRITICAL RULES:
-- ONLY use facts explicitly stated in the scraped data
-- If a specific piece of info is NOT found in the data, you MUST use "Unknown"
-- Do NOT guess, infer, or make up ANY information
-- For release dates, use exact dates found in the data
-- For prices, use exact prices found in the data (include $ sign)
-- For resale estimates, only include if actual market data is present
-- If the scraped data is empty or irrelevant, return ALL fields as "Unknown"
-
+        content: hasData
+          ? `You are a sneaker data extractor. Extract factual information from the scraped web data provided. Prioritize data explicitly found in the text.
 Return ONLY valid JSON:
-{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}`,
+{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}`
+          : `You are a sneaker expert. Provide your best known information about this shoe based on your training knowledge. Return ONLY valid JSON:
+{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}
+Try to provide real data. Only use "Unknown" if you truly don't know.`,
       },
       {
         role: 'user',
-        content: `Extract release info for "${name}" from this scraped web data:\n\n${webData || 'No web data could be retrieved. Return all fields as "Unknown".'}`,
+        content: hasData
+          ? `Extract release info for "${name}" from this data:\n\n${webData}`
+          : `What are the release details for: ${name}`,
       },
     ],
     max_tokens: 512,

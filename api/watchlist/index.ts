@@ -18,7 +18,7 @@ const USER_AGENTS = [
 
 async function findShoeImage(name: string): Promise<string | null> {
   const sources = [
-    `https://www.google.com/search?q=${encodeURIComponent(name + ' sneaker')}&tbm=isch`,
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(name + ' sneaker shoe image')}`,
     `https://sneakernews.com/?s=${encodeURIComponent(name)}`,
     `https://stockx.com/search?s=${encodeURIComponent(name)}`,
   ];
@@ -75,7 +75,7 @@ async function findShoeImage(name: string): Promise<string | null> {
 
 async function findReleaseInfo(name: string): Promise<{ releaseDate: string | null; retailPrice: string | null }> {
   try {
-    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name + ' release date retail price')}`;
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(name + ' sneaker release date retail price')}`;
     const res = await fetch(searchUrl, {
       headers: {
         'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],

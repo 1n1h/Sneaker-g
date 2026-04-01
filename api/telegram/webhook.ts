@@ -207,11 +207,9 @@ interface SearchResult extends ReleaseInfo {
 
 async function searchRelease(name: string): Promise<SearchResult> {
   const sources = [
-    { name: 'Google', url: `https://www.google.com/search?q=${encodeURIComponent(name + ' sneaker release date retail price site:sneakernews.com OR site:solecollector.com OR site:hypebeast.com OR site:kicksonfire.com')}` },
+    { name: 'DuckDuckGo', url: `https://html.duckduckgo.com/html/?q=${encodeURIComponent(name + ' sneaker release date retail price resale')}` },
     { name: 'SneakerNews', url: `https://sneakernews.com/?s=${encodeURIComponent(name)}` },
-    { name: 'StockX', url: `https://stockx.com/search?s=${encodeURIComponent(name)}` },
     { name: 'KicksOnFire', url: `https://www.kicksonfire.com/?s=${encodeURIComponent(name)}` },
-    { name: 'NiceKicks', url: `https://nicekicks.com/?s=${encodeURIComponent(name)}` },
   ];
 
   const results: string[] = [];
@@ -236,27 +234,22 @@ async function searchRelease(name: string): Promise<SearchResult> {
   }
 
   const webData = results.join('\n\n---\n\n');
+  const hasData = webData.length > 100;
 
   const res = await together.chat.completions.create({
     model: RESEARCH_MODEL,
     messages: [
       {
         role: 'system',
-        content: `You are a sneaker data extractor. Extract ONLY factual information from the scraped web data provided.
-
-CRITICAL RULES:
-- ONLY use facts explicitly stated in the scraped data
-- If a specific piece of info is NOT found in the data, you MUST use "Unknown"
-- Do NOT guess, infer, or make up ANY information
-- For release dates, use exact dates found in the data
-- For prices, use exact prices found in the data (include $ sign)
-- For resale estimates, only include if actual market data is present
-- If the scraped data is empty or irrelevant, return ALL fields as "Unknown"
-
+        content: hasData
+          ? `You are a sneaker data extractor. Extract factual information from the scraped web data. Prioritize data found in the text.
 Return ONLY valid JSON:
-{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}`,
+{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}`
+          : `You are a sneaker expert. Provide your best known information about this shoe. Return ONLY valid JSON:
+{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}
+Use your knowledge. Only use "Unknown" if you truly don't know.`,
       },
-      { role: 'user', content: `Extract release info for "${name}" from this data:\n\n${webData || 'No data found. Return all fields as "Unknown".'}` },
+      { role: 'user', content: hasData ? `Extract release info for "${name}" from this data:\n\n${webData}` : `Release details for: ${name}` },
     ],
     max_tokens: 512,
     temperature: 0,
@@ -326,7 +319,7 @@ async function findShoeImage(name: string): Promise<string | null> {
   const sources = [
     `https://sneakernews.com/?s=${encodeURIComponent(name)}`,
     `https://stockx.com/search?s=${encodeURIComponent(name)}`,
-    `https://www.google.com/search?q=${encodeURIComponent(name + ' sneaker')}&tbm=isch`,
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(name + ' sneaker shoe image')}`,
   ];
 
   for (const url of sources) {
