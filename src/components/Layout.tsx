@@ -24,7 +24,7 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex">
+    <div className="min-h-screen bg-[#0a0a0a] flex overflow-x-hidden max-w-[100vw]">
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[#111111] border-b border-[#222222] px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -90,8 +90,8 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 pt-14 lg:pt-0">
-        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <main className="flex-1 min-w-0 pt-14 lg:pt-0 overflow-x-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
           <Outlet />
         </div>
       </main>

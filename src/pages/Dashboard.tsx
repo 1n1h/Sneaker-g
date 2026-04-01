@@ -97,7 +97,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       <div>
         <h1 className="text-2xl font-bold text-[#ffffff]">Dashboard</h1>
         <p className="text-[#888888] text-sm mt-1">Monitor your sneaker watchlist at a glance</p>

@@ -55,6 +55,16 @@ export async function identifyImage(base64: string): Promise<IdentifyResult & { 
 }
 
 export async function getHistory(): Promise<ScrapeHistoryEntry[]> {
-  const { data } = await api.get<ApiResponse<ScrapeHistoryEntry[]>>('/watchlist/history');
+  const { data } = await api.get<ApiResponse<ScrapeHistoryEntry[]>>('/history');
   return data.data ?? [];
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export async function sendChatMessage(message: string): Promise<string> {
+  const { data } = await api.post<ApiResponse<{ reply: string }>>('/chat', { message });
+  return data.data?.reply ?? 'No response';
 }

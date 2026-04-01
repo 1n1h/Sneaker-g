@@ -10,11 +10,13 @@
   --color-border: #222222;
 }
 
-body {
+html, body {
   margin: 0;
   background-color: #0a0a0a;
   color: #ffffff;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 ::-webkit-scrollbar {

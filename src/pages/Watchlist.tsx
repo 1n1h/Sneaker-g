@@ -20,6 +20,8 @@ const RETAILERS = [
   'StockX',
 ];
 
+const PLACEHOLDER_IMG = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect fill="#111111" width="200" height="200"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="48" fill="#222222">👟</text></svg>`);
+
 export default function Watchlist() {
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +33,7 @@ export default function Watchlist() {
   const [formRetailer, setFormRetailer] = useState(RETAILERS[0]);
   const [formInterval, setFormInterval] = useState(30);
   const [formNotes, setFormNotes] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Editing intervals
@@ -54,7 +57,7 @@ export default function Watchlist() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!formName.trim() || !formUrl.trim()) return;
+    if (!formName.trim()) return;
     setSubmitting(true);
     try {
       const entry = await addToWatchlist({
@@ -113,6 +116,7 @@ export default function Watchlist() {
     setFormRetailer(RETAILERS[0]);
     setFormInterval(30);
     setFormNotes('');
+    setFormImageUrl('');
   }
 
   if (loading) {
@@ -124,7 +128,7 @@ export default function Watchlist() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#ffffff]">Watchlist</h1>
@@ -135,12 +139,12 @@ export default function Watchlist() {
           className="bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2.5 hover:bg-[#00ff87]/90 transition-colors flex items-center gap-2"
         >
           <Plus size={16} />
-          Add Shoe
+          <span className="hidden sm:inline">Add Shoe</span>
         </button>
       </div>
 
       {watchlist.length === 0 ? (
-        <div className="bg-[#111111] border border-[#222222] rounded-xl p-12 text-center">
+        <div className="bg-[#111111] border border-[#222222] rounded-xl p-8 sm:p-12 text-center">
           <Eye size={48} className="text-[#888888] mx-auto mb-4" />
           <h3 className="text-[#ffffff] font-semibold text-lg mb-2">No shoes in your watchlist</h3>
           <p className="text-[#888888] text-sm mb-4">
@@ -159,103 +163,117 @@ export default function Watchlist() {
           {watchlist.map((entry) => (
             <div
               key={entry.id}
-              className="bg-[#111111] border border-[#222222] rounded-xl p-5 flex flex-col gap-3 hover:border-[#333333] transition-colors"
+              className="bg-[#111111] border border-[#222222] rounded-xl overflow-hidden flex flex-col hover:border-[#333333] transition-colors"
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="text-[#ffffff] font-semibold text-sm truncate">{entry.name}</h3>
-                  <p className="text-[#888888] text-xs mt-0.5">{entry.retailer}</p>
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <StatusBadge status={entry.status} />
-                </div>
+              {/* Shoe image */}
+              <div className="w-full h-40 bg-[#0a0a0a] flex items-center justify-center overflow-hidden">
+                <img
+                  src={entry.imageUrl || PLACEHOLDER_IMG}
+                  alt={entry.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = PLACEHOLDER_IMG;
+                  }}
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <p className="text-[#888888] mb-0.5">Interval</p>
-                  {editingInterval === entry.id ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        min={5}
-                        max={1440}
-                        value={editValue}
-                        onChange={(e) => setEditValue(Number(e.target.value))}
-                        className="bg-[#0a0a0a] border border-[#222222] rounded px-2 py-1 text-xs text-[#ffffff] w-16 focus:outline-none focus:border-[#00ff87]"
-                      />
+              <div className="p-4 flex flex-col gap-3 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-[#ffffff] font-semibold text-sm truncate">{entry.name}</h3>
+                    <p className="text-[#888888] text-xs mt-0.5">{entry.retailer}</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <StatusBadge status={entry.status} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-[#888888] mb-0.5">Interval</p>
+                    {editingInterval === entry.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min={5}
+                          max={1440}
+                          value={editValue}
+                          onChange={(e) => setEditValue(Number(e.target.value))}
+                          className="bg-[#0a0a0a] border border-[#222222] rounded px-2 py-1 text-xs text-[#ffffff] w-16 focus:outline-none focus:border-[#00ff87]"
+                        />
+                        <button
+                          onClick={() => handleSaveInterval(entry.id)}
+                          className="text-[#00ff87] hover:text-[#00ff87]/80 text-xs font-medium"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingInterval(null)}
+                          className="text-[#888888] hover:text-[#ffffff] text-xs"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
                       <button
-                        onClick={() => handleSaveInterval(entry.id)}
-                        className="text-[#00ff87] hover:text-[#00ff87]/80 text-xs font-medium"
+                        onClick={() => {
+                          setEditingInterval(entry.id);
+                          setEditValue(entry.scrapeInterval);
+                        }}
+                        className="text-[#ffffff] hover:text-[#00ff87] transition-colors"
                       >
-                        Save
+                        {entry.scrapeInterval}m
                       </button>
-                      <button
-                        onClick={() => setEditingInterval(null)}
-                        className="text-[#888888] hover:text-[#ffffff] text-xs"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setEditingInterval(entry.id);
-                        setEditValue(entry.scrapeInterval);
-                      }}
-                      className="text-[#ffffff] hover:text-[#00ff87] transition-colors"
-                    >
-                      {entry.scrapeInterval}m
-                    </button>
-                  )}
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[#888888] mb-0.5">Last Checked</p>
+                    <p className="text-[#ffffff]">
+                      {entry.lastChecked
+                        ? formatDistanceToNow(new Date(entry.lastChecked), { addSuffix: true })
+                        : 'Never'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[#888888] mb-0.5">Last Checked</p>
-                  <p className="text-[#ffffff]">
-                    {entry.lastChecked
-                      ? formatDistanceToNow(new Date(entry.lastChecked), { addSuffix: true })
-                      : 'Never'}
-                  </p>
+
+                {entry.lastResult && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#888888] text-xs">Last Result:</span>
+                    <StatusBadge status={entry.lastResult} />
+                  </div>
+                )}
+
+                {entry.url && (
+                  <a
+                    href={entry.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#888888] hover:text-[#00ff87] truncate transition-colors"
+                  >
+                    {entry.url}
+                  </a>
+                )}
+
+                <div className="flex items-center gap-2 pt-2 border-t border-[#222222] mt-auto">
+                  <button
+                    onClick={() => handleTogglePause(entry)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      entry.status === 'paused'
+                        ? 'bg-[#00ff87]/10 text-[#00ff87] hover:bg-[#00ff87]/20'
+                        : 'bg-[#eab308]/10 text-[#eab308] hover:bg-[#eab308]/20'
+                    }`}
+                  >
+                    {entry.status === 'paused' ? <Play size={14} /> : <Pause size={14} />}
+                    {entry.status === 'paused' ? 'Resume' : 'Pause'}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(entry.id, entry.name)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-[#ef4444]/10 text-[#ef4444] hover:bg-[#ef4444]/20 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                    Delete
+                  </button>
                 </div>
-              </div>
-
-              {entry.lastResult && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[#888888] text-xs">Last Result:</span>
-                  <StatusBadge status={entry.lastResult} />
-                </div>
-              )}
-
-              {entry.url && (
-                <a
-                  href={entry.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-[#888888] hover:text-[#00ff87] truncate transition-colors"
-                >
-                  {entry.url}
-                </a>
-              )}
-
-              <div className="flex items-center gap-2 pt-2 border-t border-[#222222]">
-                <button
-                  onClick={() => handleTogglePause(entry)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors ${
-                    entry.status === 'paused'
-                      ? 'bg-[#00ff87]/10 text-[#00ff87] hover:bg-[#00ff87]/20'
-                      : 'bg-[#eab308]/10 text-[#eab308] hover:bg-[#eab308]/20'
-                  }`}
-                >
-                  {entry.status === 'paused' ? <Play size={14} /> : <Pause size={14} />}
-                  {entry.status === 'paused' ? 'Resume' : 'Pause'}
-                </button>
-                <button
-                  onClick={() => handleDelete(entry.id, entry.name)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-[#ef4444]/10 text-[#ef4444] hover:bg-[#ef4444]/20 transition-colors"
-                >
-                  <Trash2 size={14} />
-                  Delete
-                </button>
               </div>
             </div>
           ))}
@@ -266,7 +284,7 @@ export default function Watchlist() {
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70" onClick={() => setModalOpen(false)} />
-          <div className="relative bg-[#111111] border border-[#222222] rounded-xl w-full max-w-md p-6 space-y-4">
+          <div className="relative bg-[#111111] border border-[#222222] rounded-xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-[#ffffff]">Add Shoe to Watchlist</h2>
               <button
@@ -279,7 +297,7 @@ export default function Watchlist() {
 
             <form onSubmit={handleAdd} className="space-y-3">
               <div>
-                <label className="block text-xs text-[#888888] mb-1">Shoe Name</label>
+                <label className="block text-xs text-[#888888] mb-1">Shoe Name *</label>
                 <input
                   type="text"
                   value={formName}
@@ -297,7 +315,16 @@ export default function Watchlist() {
                   onChange={(e) => setFormUrl(e.target.value)}
                   placeholder="https://www.nike.com/launch/..."
                   className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors"
-                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-[#888888] mb-1">Image URL (optional)</label>
+                <input
+                  type="url"
+                  value={formImageUrl}
+                  onChange={(e) => setFormImageUrl(e.target.value)}
+                  placeholder="https://example.com/shoe-image.jpg"
+                  className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">

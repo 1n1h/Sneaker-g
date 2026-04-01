@@ -27,3 +27,6 @@ dist-ssr
 *.sw?
 
 .vercel
+
+sneaker-g-prompt.txt
+.claude/

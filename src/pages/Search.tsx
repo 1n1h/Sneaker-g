@@ -77,14 +77,14 @@ export default function Search() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       <div>
         <h1 className="text-2xl font-bold text-[#ffffff]">Release Search</h1>
         <p className="text-[#888888] text-sm mt-1">Search for sneaker release information</p>
       </div>
 
       {/* Search Bar */}
-      <form onSubmit={handleSearch} className="relative">
+      <form onSubmit={handleSearch} className="space-y-3">
         <div className="relative">
           <SearchIcon
             size={18}
@@ -94,18 +94,18 @@ export default function Search() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search for a shoe... (e.g., Air Jordan 1 Retro High OG Chicago)"
+            placeholder="Search any sneaker..."
             className="w-full bg-[#111111] border border-[#222222] rounded-xl pl-11 pr-4 py-4 text-[#ffffff] placeholder-[#888888] text-sm focus:outline-none focus:border-[#00ff87] transition-colors"
           />
-          <button
-            type="submit"
-            disabled={searching || !query.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-5 py-2 hover:bg-[#00ff87]/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
-            {searching ? <Loader2 size={16} className="animate-spin" /> : <SearchIcon size={16} />}
-            Search
-          </button>
         </div>
+        <button
+          type="submit"
+          disabled={searching || !query.trim()}
+          className="w-full sm:w-auto bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-xl px-6 py-3 hover:bg-[#00ff87]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {searching ? <Loader2 size={16} className="animate-spin" /> : <SearchIcon size={16} />}
+          Search Release Info
+        </button>
       </form>
 
       {/* Recent Searches */}
@@ -142,7 +142,7 @@ export default function Search() {
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
             <Loader2 size={32} className="animate-spin text-[#00ff87] mx-auto mb-3" />
-            <p className="text-[#888888] text-sm">Searching for release info...</p>
+            <p className="text-[#888888] text-sm">Searching real sources for release info...</p>
           </div>
         </div>
       )}
@@ -158,16 +158,16 @@ export default function Search() {
 
       {/* Result */}
       {result && (
-        <div className="bg-[#111111] border border-[#222222] rounded-xl p-6 space-y-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold text-[#ffffff]">{result.name}</h2>
+        <div className="bg-[#111111] border border-[#222222] rounded-xl p-5 sm:p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold text-[#ffffff] break-words">{result.name}</h2>
               <p className="text-[#888888] text-sm mt-1">{result.colorway}</p>
             </div>
             <button
               onClick={handleAddToWatchlist}
               disabled={addingToWatchlist}
-              className="bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2 hover:bg-[#00ff87]/90 transition-colors disabled:opacity-50 flex items-center gap-2 flex-shrink-0"
+              className="w-full sm:w-auto bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2 hover:bg-[#00ff87]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 flex-shrink-0"
             >
               {addingToWatchlist ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -178,22 +178,22 @@ export default function Search() {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-3 sm:p-4">
               <p className="text-[#888888] text-xs mb-1">Release Date</p>
               <p className="text-[#ffffff] font-semibold text-sm">{result.releaseDate || 'TBD'}</p>
             </div>
-            <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
+            <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-3 sm:p-4">
               <p className="text-[#888888] text-xs mb-1">Retail Price</p>
               <p className="text-[#ffffff] font-semibold text-sm">{result.retailPrice || 'N/A'}</p>
             </div>
-            <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
+            <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-3 sm:p-4">
               <p className="text-[#888888] text-xs mb-1">Est. Resale</p>
               <p className="text-[#00ff87] font-semibold text-sm">{result.estimatedResale || 'N/A'}</p>
             </div>
-            <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
+            <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-3 sm:p-4">
               <p className="text-[#888888] text-xs mb-1">Colorway</p>
-              <p className="text-[#ffffff] font-semibold text-sm">{result.colorway || 'N/A'}</p>
+              <p className="text-[#ffffff] font-semibold text-sm break-words">{result.colorway || 'N/A'}</p>
             </div>
           </div>
 
@@ -213,12 +213,31 @@ export default function Search() {
               </div>
             </div>
           )}
+
+          {result.sourceUrls && result.sourceUrls.length > 0 && (
+            <div>
+              <p className="text-[#888888] text-xs mb-2">Sources</p>
+              <div className="space-y-1">
+                {result.sourceUrls.map((url, i) => (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-xs text-[#888888] hover:text-[#00ff87] truncate transition-colors"
+                  >
+                    {url}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Empty state */}
       {!result && !searching && !error && recentSearches.length === 0 && (
-        <div className="bg-[#111111] border border-[#222222] rounded-xl p-12 text-center">
+        <div className="bg-[#111111] border border-[#222222] rounded-xl p-8 sm:p-12 text-center">
           <SearchIcon size={48} className="text-[#888888] mx-auto mb-4" />
           <h3 className="text-[#ffffff] font-semibold text-lg mb-2">Search for sneaker releases</h3>
           <p className="text-[#888888] text-sm">

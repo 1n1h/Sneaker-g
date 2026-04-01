@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Layout from './components/Layout';
+import AiChat from './components/AiChat';
 import Dashboard from './pages/Dashboard';
 import Watchlist from './pages/Watchlist';
 import Search from './pages/Search';
@@ -11,6 +12,7 @@ import Settings from './pages/Settings';
 export default function App() {
   return (
     <BrowserRouter>
+      <AiChat />
       <Toaster
         position="top-right"
         toastOptions={{
