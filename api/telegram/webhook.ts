@@ -106,22 +106,62 @@ Respond with: {"intent": "...", "params": {...}}`,
   return { intent: 'general_chat', params: {} };
 }
 
-// ─── Release search (shared logic) ──────────────────────────────────
+// ─── Release search (shared logic — uses real web scraping) ─────────
+
+async function scrapeWebData(query: string): Promise<string> {
+  const sources = [
+    `https://www.google.com/search?q=${encodeURIComponent(query + ' sneaker release date retail price site:sneakernews.com OR site:solecollector.com OR site:hypebeast.com')}`,
+    `https://sneakernews.com/?s=${encodeURIComponent(query)}`,
+  ];
+  const results: string[] = [];
+
+  const fetches = sources.map(async (url) => {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+          'Accept': 'text/html',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) return '';
+      const html = await res.text();
+      return html
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 3000);
+    } catch {
+      return '';
+    }
+  });
+
+  const scraped = await Promise.all(fetches);
+  for (const text of scraped) {
+    if (text) results.push(text);
+  }
+  return results.join('\n\n---\n\n');
+}
 
 async function searchRelease(name: string): Promise<ReleaseInfo> {
+  const webData = await scrapeWebData(name);
+
   const res = await together.chat.completions.create({
     model: RESEARCH_MODEL,
     messages: [
       {
         role: 'system',
-        content: `You are a sneaker expert. Given a sneaker name, provide release information. Return ONLY valid JSON with these fields:
-{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}
-If unknown, use "Unknown" for strings and empty array for retailers.`,
+        content: `You are a sneaker data extractor. Extract ONLY factual information from the scraped web data provided. Do NOT make up or guess any information. If a field is not found in the data, use "Unknown".
+Return ONLY valid JSON:
+{"name": "...", "releaseDate": "...", "retailers": ["..."], "retailPrice": "...", "estimatedResale": "...", "colorway": "..."}`,
       },
-      { role: 'user', content: `Provide release info for: ${name}` },
+      { role: 'user', content: `Extract release info for "${name}" from this data:\n\n${webData || 'No data found. Return all fields as "Unknown".'}` },
     ],
     max_tokens: 512,
-    temperature: 0.2,
+    temperature: 0,
   });
 
   const raw = res.choices?.[0]?.message?.content?.trim() ?? '{}';
