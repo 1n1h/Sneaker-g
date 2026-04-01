@@ -54,7 +54,7 @@ export default function History() {
   }, [history, filterResult, filterDate]);
 
   const rowBg: Record<string, string> = {
-    in_stock: 'bg-[#00ff87]/5',
+    in_stock: 'bg-[#3B9EFF]/5',
     coming_soon: 'bg-[#eab308]/5',
     sold_out: 'bg-[#ef4444]/5',
     blocked: 'bg-[#ff6b35]/5',
@@ -64,7 +64,7 @@ export default function History() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin text-[#00ff87]" size={32} />
+        <Loader2 className="animate-spin text-[#3B9EFF]" size={32} />
       </div>
     );
   }
@@ -87,7 +87,7 @@ export default function History() {
         <select
           value={filterResult}
           onChange={(e) => setFilterResult(e.target.value)}
-          className="bg-[#111111] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] focus:outline-none focus:border-[#00ff87] transition-colors"
+          className="bg-[#111111] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] focus:outline-none focus:border-[#3B9EFF] transition-colors"
         >
           {RESULT_TYPES.map((r) => (
             <option key={r} value={r}>
@@ -98,7 +98,7 @@ export default function History() {
         <select
           value={filterDate}
           onChange={(e) => setFilterDate(e.target.value)}
-          className="bg-[#111111] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] focus:outline-none focus:border-[#00ff87] transition-colors"
+          className="bg-[#111111] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] focus:outline-none focus:border-[#3B9EFF] transition-colors"
         >
           {DATE_RANGES.map((r) => (
             <option key={r} value={r}>
@@ -166,7 +166,7 @@ export default function History() {
                                 width: `${entry.confidence}%`,
                                 backgroundColor:
                                   entry.confidence >= 80
-                                    ? '#00ff87'
+                                    ? '#3B9EFF'
                                     : entry.confidence >= 50
                                     ? '#eab308'
                                     : '#ef4444',
@@ -182,7 +182,7 @@ export default function History() {
                             href={entry.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[#888888] hover:text-[#00ff87] transition-colors"
+                            className="text-[#888888] hover:text-[#3B9EFF] transition-colors"
                           >
                             <ExternalLink size={14} />
                           </a>
@@ -215,7 +215,7 @@ export default function History() {
                     href={entry.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-[#888888] hover:text-[#00ff87] truncate block transition-colors"
+                    className="text-xs text-[#888888] hover:text-[#3B9EFF] truncate block transition-colors"
                   >
                     {entry.url}
                   </a>

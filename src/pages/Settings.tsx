@@ -214,7 +214,7 @@ export default function Settings() {
       {/* Quick Setup */}
       <div className="bg-[#111111] border border-[#222222] rounded-xl p-5">
         <h2 className="text-[#ffffff] font-semibold mb-3 flex items-center gap-2">
-          <Shield size={18} className="text-[#00ff87]" />
+          <Shield size={18} className="text-[#3B9EFF]" />
           Quick Setup
         </h2>
         <p className="text-[#888888] text-xs mb-3">Enter your setup code to auto-configure all API keys.</p>
@@ -225,12 +225,12 @@ export default function Settings() {
             onChange={(e) => setQuickCode(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleQuickSetup()}
             placeholder="Enter code"
-            className="flex-1 bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors font-mono tracking-widest text-center"
+            className="flex-1 bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors font-mono tracking-widest text-center"
             maxLength={10}
           />
           <button
             onClick={handleQuickSetup}
-            className="bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-5 py-2.5 hover:bg-[#00ff87]/90 transition-colors"
+            className="bg-[#3B9EFF] text-[#0a0a0a] font-semibold text-sm rounded-lg px-5 py-2.5 hover:bg-[#3B9EFF]/90 transition-colors"
           >
             Apply
           </button>
@@ -250,8 +250,8 @@ export default function Settings() {
       )}
 
       {isConfigured && (
-        <div className="bg-[#00ff87]/10 border border-[#00ff87]/30 rounded-xl p-4 flex items-start gap-3">
-          <CheckCircle size={18} className="text-[#00ff87] flex-shrink-0 mt-0.5" />
+        <div className="bg-[#3B9EFF]/10 border border-[#3B9EFF]/30 rounded-xl p-4 flex items-start gap-3">
+          <CheckCircle size={18} className="text-[#3B9EFF] flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-[#ffffff] text-sm font-medium">All Configured</p>
             <p className="text-[#888888] text-xs mt-0.5">
@@ -264,7 +264,7 @@ export default function Settings() {
       {/* Telegram Settings */}
       <div className="bg-[#111111] border border-[#222222] rounded-xl p-5 space-y-4">
         <h2 className="text-[#ffffff] font-semibold flex items-center gap-2">
-          <Bell size={18} className="text-[#00ff87]" />
+          <Bell size={18} className="text-[#3B9EFF]" />
           Telegram Notifications
         </h2>
 
@@ -275,7 +275,7 @@ export default function Settings() {
             value={settings.telegramBotToken}
             onChange={(e) => handleChange('telegramBotToken', e.target.value)}
             placeholder="123456789:ABCdefGhIjKlMnOpQrStUvWxYz..."
-            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors font-mono"
+            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors font-mono"
           />
         </div>
 
@@ -286,7 +286,7 @@ export default function Settings() {
             value={settings.telegramChatId}
             onChange={(e) => handleChange('telegramChatId', e.target.value)}
             placeholder="Your Telegram Chat ID"
-            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors font-mono"
+            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors font-mono"
           />
         </div>
 
@@ -307,7 +307,7 @@ export default function Settings() {
       {/* AI Settings */}
       <div className="bg-[#111111] border border-[#222222] rounded-xl p-5 space-y-4">
         <h2 className="text-[#ffffff] font-semibold flex items-center gap-2">
-          <Cpu size={18} className="text-[#00ff87]" />
+          <Cpu size={18} className="text-[#3B9EFF]" />
           Together AI
         </h2>
 
@@ -318,7 +318,7 @@ export default function Settings() {
             value={settings.togetherApiKey}
             onChange={(e) => handleChange('togetherApiKey', e.target.value)}
             placeholder="Your Together AI API Key"
-            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors font-mono"
+            className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors font-mono"
           />
         </div>
 
@@ -335,7 +335,7 @@ export default function Settings() {
       {/* Scraping Defaults */}
       <div className="bg-[#111111] border border-[#222222] rounded-xl p-5 space-y-4">
         <h2 className="text-[#ffffff] font-semibold flex items-center gap-2">
-          <Clock size={18} className="text-[#00ff87]" />
+          <Clock size={18} className="text-[#3B9EFF]" />
           Scraping Defaults
         </h2>
 
@@ -347,7 +347,7 @@ export default function Settings() {
             max={1440}
             value={settings.defaultInterval}
             onChange={(e) => handleChange('defaultInterval', Number(e.target.value))}
-            className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] w-32 focus:outline-none focus:border-[#00ff87] transition-colors"
+            className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] w-32 focus:outline-none focus:border-[#3B9EFF] transition-colors"
           />
         </div>
 
@@ -359,7 +359,7 @@ export default function Settings() {
                 key={retailer}
                 className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
                   settings.defaultRetailers.includes(retailer)
-                    ? 'bg-[#00ff87]/10 border-[#00ff87]/30 text-[#ffffff]'
+                    ? 'bg-[#3B9EFF]/10 border-[#3B9EFF]/30 text-[#ffffff]'
                     : 'bg-[#0a0a0a] border-[#222222] text-[#888888] hover:border-[#888888]'
                 }`}
               >
@@ -372,7 +372,7 @@ export default function Settings() {
                 <div
                   className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
                     settings.defaultRetailers.includes(retailer)
-                      ? 'bg-[#00ff87] border-[#00ff87]'
+                      ? 'bg-[#3B9EFF] border-[#3B9EFF]'
                       : 'border-[#888888]'
                   }`}
                 >
@@ -392,7 +392,7 @@ export default function Settings() {
       {/* Custom Search Sites */}
       <div className="bg-[#111111] border border-[#222222] rounded-xl p-5 space-y-4">
         <h2 className="text-[#ffffff] font-semibold flex items-center gap-2">
-          <Globe size={18} className="text-[#00ff87]" />
+          <Globe size={18} className="text-[#3B9EFF]" />
           Custom Search Sites
         </h2>
         <p className="text-[#888888] text-xs">
@@ -411,11 +411,11 @@ export default function Settings() {
               }
             }}
             placeholder="https://www.example.com"
-            className="flex-1 bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors"
+            className="flex-1 bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors"
           />
           <button
             onClick={handleAddCustomSite}
-            className="bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2.5 hover:bg-[#00ff87]/90 transition-colors flex items-center gap-2"
+            className="bg-[#3B9EFF] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2.5 hover:bg-[#3B9EFF]/90 transition-colors flex items-center gap-2"
           >
             <Plus size={16} />
             Add
@@ -463,7 +463,7 @@ export default function Settings() {
       <button
         onClick={handleSave}
         disabled={saving}
-        className="bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-6 py-3 hover:bg-[#00ff87]/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+        className="bg-[#3B9EFF] text-[#0a0a0a] font-semibold text-sm rounded-lg px-6 py-3 hover:bg-[#3B9EFF]/90 transition-colors disabled:opacity-50 flex items-center gap-2"
       >
         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
         Save Settings

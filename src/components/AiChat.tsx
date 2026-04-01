@@ -49,7 +49,7 @@ export default function AiChat() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-50 bg-[#00ff87] text-[#0a0a0a] p-3.5 rounded-full shadow-lg shadow-[#00ff87]/20 hover:scale-105 transition-transform"
+          className="fixed bottom-5 right-5 z-50 bg-[#3B9EFF] text-[#0a0a0a] p-3.5 rounded-full shadow-lg shadow-[#3B9EFF]/20 hover:scale-105 transition-transform"
         >
           <MessageSquare size={22} />
         </button>
@@ -61,12 +61,12 @@ export default function AiChat() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#222222] bg-[#111111] sm:rounded-t-2xl">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#00ff87]/10 flex items-center justify-center">
-                <Bot size={16} className="text-[#00ff87]" />
+              <div className="w-8 h-8 rounded-full bg-[#3B9EFF]/10 flex items-center justify-center">
+                <Bot size={16} className="text-[#3B9EFF]" />
               </div>
               <div>
                 <p className="text-[#ffffff] font-semibold text-sm">Sneaker G AI</p>
-                <p className="text-[#00ff87] text-[10px]">Online</p>
+                <p className="text-[#3B9EFF] text-[10px]">Online</p>
               </div>
             </div>
             <button
@@ -85,14 +85,14 @@ export default function AiChat() {
                 className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {msg.role === 'assistant' && (
-                  <div className="w-6 h-6 rounded-full bg-[#00ff87]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Bot size={12} className="text-[#00ff87]" />
+                  <div className="w-6 h-6 rounded-full bg-[#3B9EFF]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Bot size={12} className="text-[#3B9EFF]" />
                   </div>
                 )}
                 <div
                   className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                     msg.role === 'user'
-                      ? 'bg-[#00ff87] text-[#0a0a0a] rounded-br-md'
+                      ? 'bg-[#3B9EFF] text-[#0a0a0a] rounded-br-md'
                       : 'bg-[#111111] text-[#ffffff] border border-[#222222] rounded-bl-md'
                   }`}
                 >
@@ -107,11 +107,11 @@ export default function AiChat() {
             ))}
             {loading && (
               <div className="flex gap-2 justify-start">
-                <div className="w-6 h-6 rounded-full bg-[#00ff87]/10 flex items-center justify-center flex-shrink-0">
-                  <Bot size={12} className="text-[#00ff87]" />
+                <div className="w-6 h-6 rounded-full bg-[#3B9EFF]/10 flex items-center justify-center flex-shrink-0">
+                  <Bot size={12} className="text-[#3B9EFF]" />
                 </div>
                 <div className="bg-[#111111] border border-[#222222] rounded-2xl rounded-bl-md px-4 py-3">
-                  <Loader2 size={16} className="animate-spin text-[#00ff87]" />
+                  <Loader2 size={16} className="animate-spin text-[#3B9EFF]" />
                 </div>
               </div>
             )}
@@ -128,12 +128,12 @@ export default function AiChat() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about sneakers..."
                 disabled={loading}
-                className="flex-1 bg-[#0a0a0a] border border-[#222222] rounded-xl px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors disabled:opacity-50"
+                className="flex-1 bg-[#0a0a0a] border border-[#222222] rounded-xl px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="bg-[#00ff87] text-[#0a0a0a] p-2.5 rounded-xl hover:bg-[#00ff87]/90 transition-colors disabled:opacity-50"
+                className="bg-[#3B9EFF] text-[#0a0a0a] p-2.5 rounded-xl hover:bg-[#3B9EFF]/90 transition-colors disabled:opacity-50"
               >
                 <Send size={16} />
               </button>

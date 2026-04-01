@@ -28,8 +28,7 @@ export default function Layout() {
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[#111111] border-b border-[#222222] px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xl">👟</span>
-          <span className="text-[#ffffff] font-bold text-lg">Sneaker G</span>
+          <img src="/logo.png" alt="Sneaker G" className="h-7" />
         </div>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -55,10 +54,7 @@ export default function Layout() {
         `}
       >
         <div className="px-5 h-16 flex items-center gap-2.5 border-b border-[#222222]">
-          <span className="text-2xl">👟</span>
-          <span className="text-[#ffffff] font-bold text-xl tracking-tight">
-            Sneaker G
-          </span>
+          <img src="/logo.png" alt="Sneaker G" className="h-8" />
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-1">
@@ -71,7 +67,7 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-[#00ff87]/10 text-[#00ff87]'
+                    ? 'bg-[#3B9EFF]/10 text-[#3B9EFF]'
                     : 'text-[#888888] hover:text-[#ffffff] hover:bg-[#ffffff]/5'
                 }`
               }

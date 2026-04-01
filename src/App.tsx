@@ -22,7 +22,7 @@ export default function App() {
             border: '1px solid #222222',
           },
           success: {
-            iconTheme: { primary: '#00ff87', secondary: '#111111' },
+            iconTheme: { primary: '#3B9EFF', secondary: '#111111' },
           },
           error: {
             iconTheme: { primary: '#ef4444', secondary: '#111111' },

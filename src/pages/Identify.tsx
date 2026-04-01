@@ -119,7 +119,7 @@ export default function Identify() {
             onClick={() => fileInputRef.current?.click()}
             className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors min-h-[300px] flex flex-col items-center justify-center ${
               dragging
-                ? 'border-[#00ff87] bg-[#00ff87]/5'
+                ? 'border-[#3B9EFF] bg-[#3B9EFF]/5'
                 : 'border-[#222222] bg-[#111111] hover:border-[#888888]'
             }`}
           >
@@ -131,8 +131,8 @@ export default function Identify() {
               />
             ) : (
               <>
-                <div className="p-4 rounded-full bg-[#00ff87]/10 mb-4">
-                  <Upload size={32} className="text-[#00ff87]" />
+                <div className="p-4 rounded-full bg-[#3B9EFF]/10 mb-4">
+                  <Upload size={32} className="text-[#3B9EFF]" />
                 </div>
                 <p className="text-[#ffffff] font-medium mb-1">
                   Drag and drop an image here
@@ -173,7 +173,7 @@ export default function Identify() {
         <div className="bg-[#111111] border border-[#222222] rounded-xl p-6">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full min-h-[300px]">
-              <Loader2 size={40} className="animate-spin text-[#00ff87] mb-4" />
+              <Loader2 size={40} className="animate-spin text-[#3B9EFF] mb-4" />
               <p className="text-[#ffffff] font-medium">Analyzing image...</p>
               <p className="text-[#888888] text-sm mt-1">Our AI is identifying the shoe</p>
             </div>
@@ -204,7 +204,7 @@ export default function Identify() {
                           width: `${confidencePercent}%`,
                           backgroundColor:
                             confidencePercent >= 80
-                              ? '#00ff87'
+                              ? '#3B9EFF'
                               : confidencePercent >= 50
                               ? '#eab308'
                               : '#ef4444',
@@ -214,7 +214,7 @@ export default function Identify() {
                     <span
                       className={`text-sm font-bold ${
                         confidencePercent >= 80
-                          ? 'text-[#00ff87]'
+                          ? 'text-[#3B9EFF]'
                           : confidencePercent >= 50
                           ? 'text-[#eab308]'
                           : 'text-[#ef4444]'
@@ -229,7 +229,7 @@ export default function Identify() {
               {/* Release Info */}
               {result.release && (
                 <div className="space-y-3 pt-2">
-                  <h3 className="text-sm font-semibold text-[#00ff87]">Release Information</h3>
+                  <h3 className="text-sm font-semibold text-[#3B9EFF]">Release Information</h3>
 
                   {[
                     { label: 'Release Date', value: result.release.releaseDate },
@@ -271,7 +271,7 @@ export default function Identify() {
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-xs text-[#888888] hover:text-[#00ff87] transition-colors truncate"
+                            className="flex items-center gap-1.5 text-xs text-[#888888] hover:text-[#3B9EFF] transition-colors truncate"
                           >
                             <ExternalLink size={12} className="flex-shrink-0" />
                             {url}
@@ -287,7 +287,7 @@ export default function Identify() {
                 <button
                   onClick={handleAddToWatchlist}
                   disabled={addingToWatchlist}
-                  className="flex-1 bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2.5 hover:bg-[#00ff87]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-[#3B9EFF] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2.5 hover:bg-[#3B9EFF]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {addingToWatchlist ? (
                     <Loader2 size={16} className="animate-spin" />

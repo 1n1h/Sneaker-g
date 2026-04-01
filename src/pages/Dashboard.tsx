@@ -92,7 +92,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin text-[#00ff87]" size={32} />
+        <Loader2 className="animate-spin text-[#3B9EFF]" size={32} />
       </div>
     );
   }
@@ -108,8 +108,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[#111111] border border-[#222222] rounded-xl p-4">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-[#00ff87]/10">
-              <Eye size={18} className="text-[#00ff87]" />
+            <div className="p-2 rounded-lg bg-[#3B9EFF]/10">
+              <Eye size={18} className="text-[#3B9EFF]" />
             </div>
             <span className="text-[#888888] text-sm">Watching</span>
           </div>
@@ -142,8 +142,8 @@ export default function Dashboard() {
 
         <div className="bg-[#111111] border border-[#222222] rounded-xl p-4">
           <div className="flex items-center gap-3 mb-2">
-            <div className={`p-2 rounded-lg ${monitoringStatus === 'active' ? 'bg-[#00ff87]/10' : 'bg-[#eab308]/10'}`}>
-              <Power size={18} className={monitoringStatus === 'active' ? 'text-[#00ff87]' : 'text-[#eab308]'} />
+            <div className={`p-2 rounded-lg ${monitoringStatus === 'active' ? 'bg-[#3B9EFF]/10' : 'bg-[#eab308]/10'}`}>
+              <Power size={18} className={monitoringStatus === 'active' ? 'text-[#3B9EFF]' : 'text-[#eab308]'} />
             </div>
             <span className="text-[#888888] text-sm">Monitoring</span>
           </div>
@@ -151,7 +151,7 @@ export default function Dashboard() {
             onClick={handleToggleMonitoring}
             className={`text-sm font-medium px-3 py-1 rounded-lg transition-colors ${
               monitoringStatus === 'active'
-                ? 'bg-[#00ff87]/10 text-[#00ff87] hover:bg-[#00ff87]/20'
+                ? 'bg-[#3B9EFF]/10 text-[#3B9EFF] hover:bg-[#3B9EFF]/20'
                 : 'bg-[#eab308]/10 text-[#eab308] hover:bg-[#eab308]/20'
             }`}
           >
@@ -163,7 +163,7 @@ export default function Dashboard() {
       {/* Quick Add */}
       <div className="bg-[#111111] border border-[#222222] rounded-xl p-5">
         <h2 className="text-lg font-semibold text-[#ffffff] mb-4 flex items-center gap-2">
-          <Plus size={18} className="text-[#00ff87]" />
+          <Plus size={18} className="text-[#3B9EFF]" />
           Quick Add Shoe
         </h2>
         <form onSubmit={handleQuickAdd} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -172,7 +172,7 @@ export default function Dashboard() {
             placeholder="Shoe name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors"
+            className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors"
             required
           />
           <input
@@ -180,12 +180,12 @@ export default function Dashboard() {
             placeholder="Product URL (optional)"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors"
+            className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors"
           />
           <select
             value={retailer}
             onChange={(e) => setRetailer(e.target.value)}
-            className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] focus:outline-none focus:border-[#00ff87] transition-colors"
+            className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] focus:outline-none focus:border-[#3B9EFF] transition-colors"
           >
             {RETAILERS.map((r) => (
               <option key={r} value={r}>{r}</option>
@@ -198,14 +198,14 @@ export default function Dashboard() {
               max={1440}
               value={interval}
               onChange={(e) => setInterval_(Number(e.target.value))}
-              className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] w-full focus:outline-none focus:border-[#00ff87] transition-colors"
+              className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2 text-sm text-[#ffffff] w-full focus:outline-none focus:border-[#3B9EFF] transition-colors"
             />
             <span className="text-[#888888] text-xs whitespace-nowrap">min</span>
           </div>
           <button
             type="submit"
             disabled={adding}
-            className="bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2 hover:bg-[#00ff87]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="bg-[#3B9EFF] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2 hover:bg-[#3B9EFF]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {adding ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
             Add

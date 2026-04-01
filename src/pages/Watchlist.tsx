@@ -134,7 +134,7 @@ export default function Watchlist() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin text-[#00ff87]" size={32} />
+        <Loader2 className="animate-spin text-[#3B9EFF]" size={32} />
       </div>
     );
   }
@@ -148,7 +148,7 @@ export default function Watchlist() {
         </div>
         <button
           onClick={() => setModalOpen(true)}
-          className="bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2.5 hover:bg-[#00ff87]/90 transition-colors flex items-center gap-2"
+          className="bg-[#3B9EFF] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2.5 hover:bg-[#3B9EFF]/90 transition-colors flex items-center gap-2"
         >
           <Plus size={16} />
           <span className="hidden sm:inline">Add Shoe</span>
@@ -164,7 +164,7 @@ export default function Watchlist() {
           </p>
           <button
             onClick={() => setModalOpen(true)}
-            className="bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2.5 hover:bg-[#00ff87]/90 transition-colors inline-flex items-center gap-2"
+            className="bg-[#3B9EFF] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2.5 hover:bg-[#3B9EFF]/90 transition-colors inline-flex items-center gap-2"
           >
             <Plus size={16} />
             Add Your First Shoe
@@ -199,7 +199,7 @@ export default function Watchlist() {
                       </p>
                     )}
                     {entry.retailPrice && (
-                      <p className="text-[#00ff87] text-xs mt-0.5">
+                      <p className="text-[#3B9EFF] text-xs mt-0.5">
                         {'\uD83D\uDCB0'} {entry.retailPrice}
                       </p>
                     )}
@@ -221,11 +221,11 @@ export default function Watchlist() {
                           max={1440}
                           value={editValue}
                           onChange={(e) => setEditValue(Number(e.target.value))}
-                          className="bg-[#0a0a0a] border border-[#222222] rounded px-2 py-1 text-xs text-[#ffffff] w-16 focus:outline-none focus:border-[#00ff87]"
+                          className="bg-[#0a0a0a] border border-[#222222] rounded px-2 py-1 text-xs text-[#ffffff] w-16 focus:outline-none focus:border-[#3B9EFF]"
                         />
                         <button
                           onClick={() => handleSaveInterval(entry.id)}
-                          className="text-[#00ff87] hover:text-[#00ff87]/80 text-xs font-medium"
+                          className="text-[#3B9EFF] hover:text-[#3B9EFF]/80 text-xs font-medium"
                         >
                           Save
                         </button>
@@ -242,7 +242,7 @@ export default function Watchlist() {
                           setEditingInterval(entry.id);
                           setEditValue(entry.scrapeInterval);
                         }}
-                        className="text-[#ffffff] hover:text-[#00ff87] transition-colors"
+                        className="text-[#ffffff] hover:text-[#3B9EFF] transition-colors"
                       >
                         {entry.scrapeInterval}m
                       </button>
@@ -270,7 +270,7 @@ export default function Watchlist() {
                     href={entry.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-[#888888] hover:text-[#00ff87] truncate transition-colors"
+                    className="text-xs text-[#888888] hover:text-[#3B9EFF] truncate transition-colors"
                   >
                     {entry.url}
                   </a>
@@ -281,7 +281,7 @@ export default function Watchlist() {
                     onClick={() => handleTogglePause(entry)}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors ${
                       entry.status === 'paused'
-                        ? 'bg-[#00ff87]/10 text-[#00ff87] hover:bg-[#00ff87]/20'
+                        ? 'bg-[#3B9EFF]/10 text-[#3B9EFF] hover:bg-[#3B9EFF]/20'
                         : 'bg-[#eab308]/10 text-[#eab308] hover:bg-[#eab308]/20'
                     }`}
                   >
@@ -325,7 +325,7 @@ export default function Watchlist() {
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="Nike Air Jordan 1 Retro High OG"
-                  className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors"
+                  className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors"
                   required
                 />
               </div>
@@ -336,7 +336,7 @@ export default function Watchlist() {
                   value={formUrl}
                   onChange={(e) => setFormUrl(e.target.value)}
                   placeholder="https://www.nike.com/launch/..."
-                  className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors"
+                  className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors"
                 />
               </div>
               <div>
@@ -346,7 +346,7 @@ export default function Watchlist() {
                   value={formImageUrl}
                   onChange={(e) => setFormImageUrl(e.target.value)}
                   placeholder="https://example.com/shoe-image.jpg"
-                  className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors"
+                  className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -355,7 +355,7 @@ export default function Watchlist() {
                   <select
                     value={formRetailer}
                     onChange={(e) => setFormRetailer(e.target.value)}
-                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] focus:outline-none focus:border-[#00ff87] transition-colors"
+                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] focus:outline-none focus:border-[#3B9EFF] transition-colors"
                   >
                     {RETAILERS.map((r) => (
                       <option key={r} value={r}>{r}</option>
@@ -370,7 +370,7 @@ export default function Watchlist() {
                     max={1440}
                     value={formInterval}
                     onChange={(e) => setFormInterval(Number(e.target.value))}
-                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] focus:outline-none focus:border-[#00ff87] transition-colors"
+                    className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] focus:outline-none focus:border-[#3B9EFF] transition-colors"
                   />
                 </div>
               </div>
@@ -381,13 +381,13 @@ export default function Watchlist() {
                   onChange={(e) => setFormNotes(e.target.value)}
                   placeholder="Size 10, any colorway..."
                   rows={2}
-                  className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#00ff87] transition-colors resize-none"
+                  className="w-full bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-2.5 text-sm text-[#ffffff] placeholder-[#888888] focus:outline-none focus:border-[#3B9EFF] transition-colors resize-none"
                 />
               </div>
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2.5 hover:bg-[#00ff87]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full bg-[#3B9EFF] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2.5 hover:bg-[#3B9EFF]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                 Add to Watchlist

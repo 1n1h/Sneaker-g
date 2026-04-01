@@ -95,13 +95,13 @@ export default function Search() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search any sneaker..."
-            className="w-full bg-[#111111] border border-[#222222] rounded-xl pl-11 pr-4 py-4 text-[#ffffff] placeholder-[#888888] text-sm focus:outline-none focus:border-[#00ff87] transition-colors"
+            className="w-full bg-[#111111] border border-[#222222] rounded-xl pl-11 pr-4 py-4 text-[#ffffff] placeholder-[#888888] text-sm focus:outline-none focus:border-[#3B9EFF] transition-colors"
           />
         </div>
         <button
           type="submit"
           disabled={searching || !query.trim()}
-          className="w-full sm:w-auto bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-xl px-6 py-3 hover:bg-[#00ff87]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full sm:w-auto bg-[#3B9EFF] text-[#0a0a0a] font-semibold text-sm rounded-xl px-6 py-3 hover:bg-[#3B9EFF]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {searching ? <Loader2 size={16} className="animate-spin" /> : <SearchIcon size={16} />}
           Search Release Info
@@ -128,7 +128,7 @@ export default function Search() {
               <button
                 key={i}
                 onClick={() => handleRecentClick(term)}
-                className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-1.5 text-xs text-[#ffffff] hover:border-[#00ff87] hover:text-[#00ff87] transition-colors"
+                className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-1.5 text-xs text-[#ffffff] hover:border-[#3B9EFF] hover:text-[#3B9EFF] transition-colors"
               >
                 {term}
               </button>
@@ -141,7 +141,7 @@ export default function Search() {
       {searching && (
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
-            <Loader2 size={32} className="animate-spin text-[#00ff87] mx-auto mb-3" />
+            <Loader2 size={32} className="animate-spin text-[#3B9EFF] mx-auto mb-3" />
             <p className="text-[#888888] text-sm">Searching real sources for release info...</p>
           </div>
         </div>
@@ -167,7 +167,7 @@ export default function Search() {
             <button
               onClick={handleAddToWatchlist}
               disabled={addingToWatchlist}
-              className="w-full sm:w-auto bg-[#00ff87] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2 hover:bg-[#00ff87]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 flex-shrink-0"
+              className="w-full sm:w-auto bg-[#3B9EFF] text-[#0a0a0a] font-semibold text-sm rounded-lg px-4 py-2 hover:bg-[#3B9EFF]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 flex-shrink-0"
             >
               {addingToWatchlist ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -189,7 +189,7 @@ export default function Search() {
             </div>
             <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-3 sm:p-4">
               <p className="text-[#888888] text-xs mb-1">Est. Resale</p>
-              <p className="text-[#00ff87] font-semibold text-sm">{result.estimatedResale || 'N/A'}</p>
+              <p className="text-[#3B9EFF] font-semibold text-sm">{result.estimatedResale || 'N/A'}</p>
             </div>
             <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-3 sm:p-4">
               <p className="text-[#888888] text-xs mb-1">Colorway</p>
@@ -206,7 +206,7 @@ export default function Search() {
                     key={i}
                     className="bg-[#0a0a0a] border border-[#222222] rounded-lg px-3 py-1.5 text-xs text-[#ffffff] flex items-center gap-1.5"
                   >
-                    <ShoppingBag size={12} className="text-[#00ff87]" />
+                    <ShoppingBag size={12} className="text-[#3B9EFF]" />
                     {r}
                   </span>
                 ))}
@@ -224,7 +224,7 @@ export default function Search() {
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block text-xs text-[#888888] hover:text-[#00ff87] truncate transition-colors"
+                    className="block text-xs text-[#888888] hover:text-[#3B9EFF] truncate transition-colors"
                   >
                     {url}
                   </a>
