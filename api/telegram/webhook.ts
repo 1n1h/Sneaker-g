@@ -21,19 +21,17 @@ const VISION_MODEL = 'Qwen/Qwen3-VL-8B-Instruct';
 // ─── Telegram helpers ────────────────────────────────────────────────
 
 async function sendTelegramMessage(chatId: string, text: string): Promise<void> {
-  // Try with Markdown first, fall back to plain text if it fails
-  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+  const token = process.env.TELEGRAM_BOT_TOKEN!;
+  // Send as plain text to avoid Markdown parsing issues
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' }),
+    body: JSON.stringify({ chat_id: chatId, text }),
   });
-  if (!res.ok) {
-    // Retry without parse_mode if Markdown fails
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text }),
-    });
+  const result = await res.json();
+  console.log('Telegram sendMessage result:', JSON.stringify(result));
+  if (!result.ok) {
+    throw new Error(`Telegram API error: ${JSON.stringify(result)}`);
   }
 }
 
